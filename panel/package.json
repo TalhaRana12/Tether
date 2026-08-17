@@ -1,0 +1,1 @@
+{"name":"tether-panel-tests","private":true,"version":"0.1.0","description":"Playwright tests for browser-side panel crypto. Test tooling only - never a runtime dependency (HR-9.7 forbids a CDN; assets are vendored).","devDependencies":{"@playwright/test":"^1.62.1"}}

@@ -40,3 +40,9 @@ local.properties
 *.swp
 Thumbs.db
 desktop.ini
+
+# Playwright / Node (test tooling only — never a runtime dependency; HR-9.7 requires
+# panel assets vendored and served locally, so nothing here ships)
+node_modules/
+panel/test-results/
+panel/playwright-report/

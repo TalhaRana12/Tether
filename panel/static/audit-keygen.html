@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>tether - admin audit keypair</title>
+    <!--
+      ASCII-only on purpose. This file was corrupted twice by a PowerShell
+      string round-trip that re-encoded UTF-8 punctuation as mojibake, so it
+      carries no characters outside ASCII to re-break.
+
+      No inline script and no inline style. HR-9.7 requires CSP `default-src 'self'`
+      with no inline scripts, and server.js sends exactly that policy, so an inline
+      handler added here is blocked by the browser and the tests go red.
+
+      No CDN, no external font, no external anything: this page produces the key
+      that decrypts every user's audit log, so one third-party request is one third
+      party who can replace the crypto.
+    -->
+    <link rel="stylesheet" href="audit-keygen.css" />
+    <script src="wordlist.js" defer></script>
+    <script src="audit-keygen.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <h1>Admin audit keypair</h1>
+
+      <p class="warn">
+        This page generates the X25519 keypair that every host seals its audit log
+        to. It is generated here, in this browser, and never sent anywhere.
+      </p>
+
+      <section>
+        <h2>1. Generate</h2>
+        <button id="generate" type="button">Generate keypair</button>
+
+        <h3>Public key <small>(committed into agent builds - safe to publish)</small></h3>
+        <pre id="public-key" aria-live="polite"></pre>
+
+        <h3>Recovery secret <small>(print this - it is one of three ways in)</small></h3>
+        <pre id="recovery-mnemonic" aria-live="polite"></pre>
+
+        <h3>Wrapped private key <small>(safe to store in the database)</small></h3>
+        <pre id="wrapped-blob" aria-live="polite"></pre>
+      </section>
+
+      <section>
+        <h2>2. Verify the recovery path</h2>
+        <p>
+          Prove the paper secret really opens the key before you rely on it. HR-4.5
+          makes losing all three wraps the intended terminal failure - there is no
+          fourth copy anywhere.
+        </p>
+        <label for="unwrap-mnemonic">Recovery secret</label>
+        <textarea id="unwrap-mnemonic" rows="3" spellcheck="false"></textarea>
+
+        <label for="unwrap-blob">Wrapped private key</label>
+        <textarea id="unwrap-blob" rows="3" spellcheck="false"></textarea>
+
+        <button id="unwrap" type="button">Unwrap</button>
+        <pre id="unwrap-result" aria-live="polite"></pre>
+      </section>
+    </main>
+  </body>
+</html>

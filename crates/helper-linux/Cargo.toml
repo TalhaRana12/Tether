@@ -1,0 +1,11 @@
+[package]
+name = "tether-helper-linux"
+description = "Linux input-injection helper. HR-7.3: under 500 lines, no network code, reviewed line-by-line."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# DEPENDENCIES: intentionally none. See crates/helper-win/Cargo.toml — same rule,
+# same reason (HR-7.3).
+[dependencies]

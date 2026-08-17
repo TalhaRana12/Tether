@@ -1,0 +1,18 @@
+[package]
+name = "tether-helper-win"
+description = "Windows input-injection helper. HR-7.3: under 500 lines, no network code, reviewed line-by-line."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# DEPENDENCIES: intentionally none.
+#
+# HR-7.3 requires this binary to have "no network code". The way to mean that is to
+# give it no dependency that could provide any, so the compiler enforces what a
+# review checklist only asks for. cargo-deny's [bans] list is the second layer,
+# catching a transitive arrival.
+#
+# Adding ANY dependency here is a security change. Cite HR-7.3 in the commit
+# message and expect the line-by-line review this rule requires.
+[dependencies]

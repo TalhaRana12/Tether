@@ -1,0 +1,11 @@
+[package]
+name = "tether-agent-win"
+description = "Windows per-session worker. Unprivileged (HR-7.1). Holds all session keys."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+tether-agent-core = { path = "../agent-core" }
+tether-proto = { path = "../proto" }

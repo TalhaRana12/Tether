@@ -1,0 +1,19 @@
+[package]
+name = "tether-broker-win"
+description = "Windows SYSTEM broker. HR-7.1: no capture, no input, no session keys, no network code."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# DEPENDENCIES: intentionally none for now.
+#
+# HR-7.1: "no capture code, no input code, no session keys, no network code."
+# This crate will eventually need the Windows API for CreateProcessAsUser and the
+# WTS_SESSION_* notifications — and nothing else. It must never gain a crypto,
+# capture, or networking dependency; those belong to the unprivileged worker, which
+# is the whole point of the split (spec §4.10, §6.13).
+#
+# "The broker is the smallest thing that could possibly work" — spec §4.10, and it
+# is reviewed line-by-line like the helper.
+[dependencies]

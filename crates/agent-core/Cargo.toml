@@ -1,0 +1,24 @@
+[package]
+name = "tether-agent-core"
+description = "Platform-independent agent logic. Phase 0: release/rollback manifest verification."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+tether-proto = { path = "../proto" }
+ed25519-dalek.workspace = true
+sha2.workspace = true
+semver.workspace = true
+hex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+# Integration tests need to *produce* signatures to test the verifier against.
+# The real release key is an offline YubiKey (HR-12.1) and never appears in source;
+# these are deterministic test seeds, which is safe precisely because HR-0.3 means
+# no real secret is ever derived from a guessable value.
+ed25519-dalek = { workspace = true, features = ["rand_core"] }

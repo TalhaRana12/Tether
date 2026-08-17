@@ -1,0 +1,192 @@
+// tether wire protocol, v1.
+//
+// ============================================================================
+//  READ THIS BEFORE ADDING A MESSAGE. THE ABSENCES BELOW ARE THE SECURITY MODEL.
+// ============================================================================
+//
+// HR-1.1 / HR-1.2: the following have NO wire representation. Not commented out,
+// not feature-flagged, not permission-gated. ABSENT. Their absence IS a security
+// control, and this comment exists so that a future contributor does not helpfully
+// add them back:
+//
+//   grant_capability   - or anything that modifies a host's capability table
+//   add_peer           - or anything that adds a key to a host allowlist
+//   start_session      - \
+//   join_session       -  } any server- or admin-originated session initiation
+//   observe_session    - /
+//   wipe / reset / reconfigure  - any host-side self-destruct or remote config
+//   elevate            - deleted outright (spec 6.14); see the note on Capability
+//   ...anything that approves a connection on a user's behalf
+//   ...anything that sets or reads a device's access mode
+//   ...anything that sets or clears a backup credential
+//   ...anything by which the panel or CI signs a release or rollback manifest
+//
+// HR-1.3, and the distinction that matters: ConnectRequest DOES exist. It travels
+// PEER-TO-PEER and is answered by the HOST USER at the moment of connection
+// (HR-2.1). What does not exist is any message by which the SERVER or ADMIN
+// initiates, approves, or observes a session.
+//
+// HR-1.4: the agent obeys exactly TWO server-originated commands, KillSession and
+// RevokeDevice. Both are strictly restrictive, both reversible, both signed by the
+// pinned Ed25519 server identity key. No other message type is signed, and
+// therefore no other message type is obeyed.
+//
+// HR-11.2: the signaling server relays Envelope bytes as OPAQUE blobs. It must not
+// parse this schema. Treat it as []byte on the server side.
+//
+// Pre-merge: if your change adds a message that grants, pairs, connects, approves,
+// or configures - stop. HARD-RULES Appendix B, question 1.
+//
+// NOTE ON ENCODING: this file is deliberately ASCII-only. It is read by protoc, by
+// three language toolchains, and by tests/protocol_absence.rs, and a mojibaked
+// section sign in a security comment is a bad way to discover an encoding bug.
+
+syntax = "proto3";
+
+package tether.v1;
+
+// ---------------------------------------------------------------------------
+// Versioning
+// ---------------------------------------------------------------------------
+
+// HR-1.6: every envelope carries an explicit version. Each build compiles in a
+// MIN_PROTOCOL_VERSION and refuses anything below it - no negotiation, no fallback
+// path. Versioning without a floor is a downgrade oracle (spec 6.24): it lets an
+// attacker re-select semantics you already fixed.
+//
+// The floor lives in Rust (proto::MIN_PROTOCOL_VERSION), not here, because a
+// constant in a schema is a suggestion and a constant in a binary is a rule.
+message Envelope {
+  uint32 v = 1;
+
+  oneof payload {
+    // Peer-to-peer. Answered by the host user, never by the server.
+    ConnectRequest connect_request = 2;
+    ConnectResponse connect_response = 3;
+
+    // Server-originated. Exactly two, per HR-1.4. Both restrictive.
+    SignedServerCommand server_command = 4;
+  }
+
+  // Deliberately NOT present yet, and not to be guessed at:
+  //
+  //   media frame header  - blocked on BLK-2. The epoch field width and the byte
+  //                         order of `epoch || ctr` are unstated in the spec, and
+  //                         the header is the AEAD's AAD (HR-4.3), so its layout
+  //                         is covered by the MAC and cannot change later without
+  //                         a version bump. A Rust encoder and a Kotlin decoder
+  //                         written from prose will disagree exactly once, in
+  //                         production, on a rekey boundary. Phase 5.
+  //   input events        - Phase 7. HR-7.6: hardware scancodes, not characters.
+  //   clipboard / files   - Phase 9, off by default (HR-15.5).
+}
+
+// ---------------------------------------------------------------------------
+// Capabilities (HR-2.4)
+// ---------------------------------------------------------------------------
+
+// Defaults are enforced host-side, not here. A capability appearing in this enum
+// grants nothing: HR-2.4 makes `connect`, `clipboard_read`, `clipboard_write` and
+// `file_transfer` denied by default, and HR-2.5 requires the capability check to
+// happen BEFORE the gated message body is parsed, never after.
+//
+// There is no ELEVATE. It is not reserved, not deprecated, not gated - it never
+// receives a field number (spec 6.14, HR-2.4). UAC renders on the secure desktop,
+// which Desktop Duplication cannot capture and a user-session SendInput cannot
+// reach; delivering it would have required exactly the SYSTEM-session input
+// primitive that HR-7.3's helper design exists to deny. Do not add it.
+enum Capability {
+  CAPABILITY_UNSPECIFIED = 0;
+  CAPABILITY_CONNECT = 1;
+  CAPABILITY_VIEW = 2;
+  CAPABILITY_CONTROL = 3;
+  CAPABILITY_CLIPBOARD_READ = 4;
+  CAPABILITY_CLIPBOARD_WRITE = 5;
+  CAPABILITY_FILE_TRANSFER = 6;
+}
+
+// ---------------------------------------------------------------------------
+// Connection consent (HR-2.1, spec 4.9) - peer-to-peer
+// ---------------------------------------------------------------------------
+
+// Sent by a PAIRED device to REQUEST a session. Pairing is not permission to
+// connect (HR-0.4): this message asks, and a human on the host answers.
+message ConnectRequest {
+  // The peer's CLAIMED label. HR-2.2: this is NOT what the consent prompt shows.
+  // The prompt shows the locally-stored pairing name, and this field is never
+  // displayed in the prompt at all - it closes the impersonation shape of spec
+  // 6.5 at connect time rather than only at pairing time.
+  //
+  // Treat as hostile input (HR-0.5). HR-9.7's ingest allowlist applies:
+  // ^[\p{L}\p{N} _\-]{1,32}$, rejected rather than sanitised.
+  string claimed_device_label = 1;
+
+  repeated Capability capabilities_wanted = 2;
+}
+
+// The host user's answer. There is no variant meaning "the server decided".
+message ConnectResponse {
+  Decision decision = 1;
+
+  enum Decision {
+    DECISION_UNSPECIFIED = 0;
+    DECISION_ALLOW = 1;
+    DECISION_DENY = 2;
+    // HR-2.1 step 3: no response within 60s is treated as a Deny and logged as
+    // consent_timeout. The timeout is measured on a MONOTONIC clock (HR-6.1) -
+    // a local attacker who moves the wall clock must not extend it.
+    DECISION_TIMEOUT = 3;
+  }
+
+  // Granted capabilities are the INTERSECTION of what was asked for and what the
+  // host allows - never the union (WORKING-AGREEMENT 7, least privilege).
+  repeated Capability capabilities_granted = 2;
+}
+
+// ---------------------------------------------------------------------------
+// Server-originated commands (HR-1.4) - exactly two, both restrictive
+// ---------------------------------------------------------------------------
+
+// Every field the agent acts on is inside `command_bytes`, and the signature is
+// verified over those exact bytes BEFORE they are parsed. Verifying a
+// re-serialised struct instead invites a canonicalisation bug: two different
+// messages that serialise identically is a forgery.
+message SignedServerCommand {
+  bytes command_bytes = 1;
+
+  // Ed25519 over command_bytes, by the pinned server identity key compiled into
+  // the agent binary (HR-4.9). TLS is a transport convenience, not a trust anchor.
+  bytes signature = 2;
+}
+
+// The decoded body of SignedServerCommand.
+//
+// HR-1.5: the agent REJECTS AND LOGS any inbound message type it does not
+// recognise, and NEVER accepts an authorization decision from the control plane.
+// A validly-signed server message asserting grant_capability is dropped - the
+// signature proves origin, not authority (HR-5.4).
+message ServerCommand {
+  // Replay defence. Monotonic per device; the agent refuses a seq it has seen.
+  uint64 seq = 1;
+
+  oneof command {
+    KillSession kill_session = 2;
+    RevokeDevice revoke_device = 3;
+  }
+}
+
+// Transient and self-healing. Tears down a live session; the host logs it.
+// HR-1.7: this needs no host cooperation and destroys nothing.
+message KillSession {
+  string session_id = 1;
+}
+
+// HR-1.7: revocation is enforced SOLELY by the server declining to relay. This
+// message is a notification, not an instruction to destroy anything. The host
+// KEEPS its keys and pairings; if the revocation is reversed, everything resumes
+// automatically. There is no self-wipe - spec 6.4 removed it because a forged
+// mass revoke would otherwise force every user to be physically at their laptop,
+// which is the outcome the design most wants to avoid.
+message RevokeDevice {
+  string device_id = 1;
+}

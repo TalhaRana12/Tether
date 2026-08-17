@@ -297,11 +297,22 @@ fn parse_artifacts(wire: Vec<WireArtifact>) -> Result<Vec<Artifact>, Reject> {
 
 /// The Rekor leaf whose inclusion is being proven: the manifest digest.
 ///
-/// TODO(BLK-12): the exact Rekor entry body this digest corresponds to is not
-/// pinned by the spec. Rekor leaves are canonicalised entry bodies, not bare
-/// digests, so the byte-level leaf definition is an externally-observable shape and
-/// must be fixed before Phase 10 ships an auto-updater. Verified against a
-/// synthetic tree until then — see tests/rekor_inclusion.rs.
+/// TODO(BLK-12): BLK-12 is **resolved** — the decision is option A: pin the Rekor v1
+/// `hashedrekord` entry body as the leaf, and require a signed checkpoint verified
+/// against a Rekor public key compiled into the binary, alongside the release key
+/// (the same pattern HR-4.9 uses for the server identity key).
+///
+/// What remains is implementation, and it lands in Phase 10:
+///   - hash the `hashedrekord` body rather than the bare manifest digest
+///   - verify a signed checkpoint, so the root is *attested* rather than supplied.
+///     A Merkle proof only proves membership in a tree with a GIVEN root; without a
+///     checkpoint an attacker hands over both the proof and the root and passes
+///     HR-12.2 check 2 for free.
+///   - replace the synthetic test trees in tests/rekor_inclusion.rs with captured
+///     Rekor proofs
+///
+/// Until then this hashes the manifest digest, which exercises the RFC 6962 path
+/// correctly but is not yet the real leaf. Do not ship an auto-updater on it.
 pub fn manifest_digest(bytes: &[u8]) -> Hash {
     Sha256::digest(bytes).into()
 }

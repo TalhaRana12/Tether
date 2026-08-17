@@ -96,3 +96,45 @@ leave alone. If the scope rule is to be honoured strictly, the correct dispositi
 Phase 5 opens — the deviation is already documented at HR-4.3, so nothing is unsafe in the meantime.
 
 **Decision:** _(written by a human; the phase does not proceed until this is filled in)_
+
+---
+
+## AMD-2 — §4.7 specifies `canonical_json`, which is never defined            [PROPOSED]
+**Spec phase:** 4 (panel verifies the chain) and 8 (host writes it)   **Workflow phase:** —
+**Raised:** 2026-08-17   **Gate:** 2 (Reconcile)
+
+**The spec says** (implementation-spec-v4.md §4.7, verbatim):
+
+> Entry: `{seq, ts, event, client_key_fp, client_ip, capabilities, prev_hash, hash}` with
+> `hash = BLAKE2s(prev_hash || canonical_json(entry_without_hash))`.
+
+**The repo shows:** no implementation — the audit chain is Phase 8. Nothing is built on it yet.
+
+**Why they diverge:** `canonical_json` is not defined anywhere in the spec, and JSON has no canonical
+form. Key ordering, whitespace, number formatting (`42` vs `42.0` vs `4.2e1`), and unicode escaping are
+each left open, and each produces a different hash for the same logical entry. The host writes the chain
+in Rust; the panel verifies it in browser JavaScript. Any disagreement makes an **intact** chain fail
+verification, which HR-10.4 renders as `TRUNCATED — N entries missing` — the tamper alarm firing on
+healthy data, which is how an alarm comes to be ignored, and therefore how HR-10.1's "nobody can silently
+truncate it" fails in practice rather than in theory. A verifier made lenient to quiet that noise would
+accept a *forged* entry instead.
+
+Separately, the entry schema as given has **no field** for what §5.3 requires: `session_end`'s duration,
+bytes, and reason, or `session_start`'s transport.
+
+**Minimal amendment:** in §4.7, replace the `hash = BLAKE2s(prev_hash || canonical_json(...))` line with
+the length-prefixed binary encoding now pinned at **HR-10.2**, and add `detail` to the stored entry
+schema. Keep `audit.jsonl` as JSON for display — the change is only to what gets *hashed*. Add one
+sentence stating that no JSON serialiser may appear in a hash path (HR-10.2a).
+
+**Downstream effects:** none in code — Phase 8 has not run, so there is no chain to migrate. Documentation
+only: §4.7, and §6.7's resolution text, which describes truncation detection as closed while its hash
+input is undefined. Note that a chain **cannot** be migrated afterwards without breaking every hash in
+it, which is why this is worth settling before Phase 4 rather than during Phase 8.
+
+**Note on scope.** As with AMD-1, workflow §4.2 restricts an amendment to this phase's section and §4.7
+belongs to Phases 4 and 8. Raised anyway: the deviation is recorded at HR-10.2 and under the BLK-10
+resolution HARD-RULES is authoritative, so nothing is unsafe in the meantime. If the scope rule is
+honoured strictly, hold this until Phase 4 opens.
+
+**Decision:** _(written by a human; the phase does not proceed until this is filled in)_

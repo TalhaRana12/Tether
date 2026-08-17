@@ -312,3 +312,123 @@ unmet. Nothing here should be read as clearing HR-15.1 for spec Phase 1.
 
 **Gate 1 halted and was overridden.** Twelve blockers remain open. BLK-9 alone gates five threats and
 three of the undone Phase 0 items, and it is a ~$12 domain purchase.
+
+---
+
+# GATE RE-RUN — 2026-08-17, after all 13 blockers resolved
+
+Appended, not rewritten. The original run above stands, including its gate 1 HALT — that
+is a fact about what happened and does not become untrue because the condition later cleared.
+
+**What changed between runs:** all 13 blockers resolved by the author; `HARD-RULES.md`
+reconciled against the spec (1 contradiction, 1 internal inconsistency, 7 omissions);
+`docs/engineering/{rust,go,kotlin}-hard-rules.md` created per BLK-11; workflow §8 amended;
+AMD-1 and AMD-2 raised. **No test was modified.**
+
+## Gate 0 — Status
+
+```
+Open blockers (module-wide):   0    (13 resolved)
+Proposed amendments:           2    AMD-1 (spec §4.4, Phase 5), AMD-2 (spec §4.7, Phases 4/8)
+This phase:                    0.1
+```
+
+Neither amendment touches a section in phase 0.1's scope. Workflow §4.2's "the phase does not
+proceed" therefore binds **Phase 4 and Phase 5**, not this one — recorded so a later gate 1
+does not have to rediscover it.
+
+## Gate 1 — Order
+
+```
+Prerequisite phases:            none (first phase)
+Open blockers anywhere:         0
+Verdict: PASS
+```
+
+**This is the gate that halted on the first run.** It passed because the 13 questions were
+answered, not because the check was loosened. The override recorded above remains in the file.
+
+## Gate 2 — Reconcile
+
+```
+docs/engineering/rust-hard-rules.md      exists   (23 rules, RS-1..RS-23)
+docs/engineering/go-hard-rules.md        exists   (16 rules, GO-1..GO-16)
+docs/engineering/kotlin-hard-rules.md    exists   (16 rules, KT-1..KT-16)
+workflow §8 amended: {go,python,react} -> {rust,go,kotlin}
+Divergences in this phase's scope:       none
+Verdict: PASS
+```
+
+One remaining match for `python,react` in the workflow is the amendment note itself, citing
+what the line previously said. Historical citation, not a live binding.
+
+## Gate 3 — Red / freeze
+
+```
+Freeze baseline: 4/4 files match. Tests untouched since the last commit.
+Verdict: PASS (no new tests this run; nothing re-entered gate 3)
+```
+
+## Gate 5 — Green + aligned
+
+```
+cargo test --workspace  ->  43 passed, 0 failed
+Freeze re-verified:         intact
+Verdict: PASS
+```
+
+## Gate 6 — Run
+
+```
+tether-agent-win     "tether-agent-win 0.1.0 · protocol v1 (floor v1)"      exit 0
+tether-agent-linux   "tether-agent-linux 0.1.0 · protocol v1 (floor v1)"    exit 0
+tether-helper-win    refuses, exit 1                    (inert until Phase 7 — intended)
+Reproducibility      7BD473CE1FE4D3AEA4E3D972042A3CBF...  byte-identical across clean rebuild
+Verdict: PASS
+```
+
+Still not verified: byte-identity from a *different source path*. `trim-paths` is unstable in
+Cargo 1.97.1; the `--remap-path-prefix` procedure is documented in REPRODUCIBLE-BUILDS.md but
+not yet exercised. Unchanged from the first run and still outstanding.
+
+## Gate 7 — Scan
+
+```
+cargo fmt --all -- --check                              exit 0
+cargo clippy --workspace --all-targets -- -D warnings   exit 0
+cargo deny check          advisories ok, bans ok, licenses ok, sources ok
+TODO grep                 1 hit, TODO(BLK-12), the permitted form only
+WAIVER grep               0
+Verdict: PASS
+```
+
+`TODO(BLK-12)` was rewritten this run. It previously said the Rekor entry body "is not pinned
+by the spec", which stopped being true when BLK-12 was resolved. It now records the decision
+(option A), the three implementation steps Phase 10 owes, and an explicit warning not to ship
+an auto-updater on the current placeholder leaf. A stale comment in security machinery is the
+documentation-and-code-disagree defect WORKING-AGREEMENT §4 forbids.
+
+## Gate 8 — Commit
+
+Atomic commits on `phase-0-foundations`. Registry updated.
+
+---
+
+## ALL EIGHT GATES PASS.
+
+**What that does and does not mean.**
+
+It means: the process ran clean end to end, with no override, no waiver, no open question, and
+43 tests behind it.
+
+It does **not** mean spec Phase 0 is complete. Three exit criteria remain unmet, none of them
+an engineering decision:
+
+| Criterion | Blocked on |
+|---|---|
+| "you sign one manually with the YubiKey" | hardware, ~$75 |
+| "all three audit-key unwrap paths are exercised" | 2× WebAuthn authenticators + the panel domain (BLK-9's retained precondition) |
+| byte-identical builds from a *different source path* | `--remap-path-prefix` procedure not yet exercised |
+
+HR-15.1 is therefore **not** cleared for spec Phase 1. Phase 0.2 remains blocked on purchases,
+not on decisions.

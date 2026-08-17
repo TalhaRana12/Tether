@@ -231,9 +231,16 @@ without reconstructing it from a commit log.
 
 These are loaded and honored at every gate, not consulted when someone remembers:
 
-- **The language hard rules** (`docs/engineering/{go,python,react}-hard-rules.md`) — binding, with
+- **The language hard rules** (`docs/engineering/{rust,go,kotlin}-hard-rules.md`) — binding, with
   stable IDs. MUST blocks merge; SHOULD needs a one-line justification; the only way to break one is
   a `WAIVER <ID>: <reason>` comment at the site plus the same line in the pull request.
+
+  *Amended 2026-08-17 per the BLK-11 resolution.* This previously read `{go,python,react}`, which bound
+  the project to two languages it does not use while omitting the two carrying the most risk — Rust,
+  which holds every `unsafe` block, the crypto, and both privileged binaries, and Kotlin, which per
+  §4.12 of the design volume must defend itself against a hostile host. All three files now exist,
+  seeded rather than comprehensive: a rule is added when a phase finds the same problem a third time
+  (§6), not in advance.
 - **The module's design intent** (`docs/impl-specs/<module>/DESIGN-INTENT.md`) — the reasoning behind
   the design, so an uncovered gap is resolved the way this system is designed rather than the way
   such systems are usually built.

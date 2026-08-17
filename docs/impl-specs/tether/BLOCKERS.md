@@ -28,7 +28,9 @@ the option was chosen by the author from the options listed in that record.
 | BLK-10 document authority | RESOLVED | option C |
 | BLK-11 language rule files | RESOLVED | option C |
 | BLK-12 Rekor trust root | RESOLVED | option A, pinned log key + checkpoint |
-| **BLK-13 `canonical_json`** | **OPEN** | blocks Phases 4 and 8 |
+| BLK-13 `canonical_json` | RESOLVED | chain hash no longer uses JSON; see HR-10.2 |
+
+**All 13 resolved. No blocker halts the module as of 2026-08-17.**
 
 Origins: BLK-1 through BLK-9 are [HARD-RULES.md](../../HARD-RULES.md) Appendix A transcribed into
 Blocker Record form — the spec author's own list of places not to guess. BLK-10 and BLK-11 came from
@@ -535,7 +537,7 @@ pinned and the synthetic test trees are replaced with captured Rekor proofs. Blo
 
 ---
 
-## BLK-13 — `canonical_json` is undefined, so the audit chain cannot verify            [OPEN]
+## BLK-13 — `canonical_json` is undefined, so the audit chain cannot verify            [RESOLVED]
 **Spec phase:** 4 (panel verifies) and 8 (host writes)   **Workflow phase:** —
 **Raised:** 2026-08-17   **Gate:** 2 (Reconcile), during the HARD-RULES/spec diff
 **Where:** HR-10.2, HR-10.4 · spec §4.7 · HARD-RULES Appendix A-10
@@ -586,4 +588,42 @@ deliberately avoided this whole class of problem by verifying signatures over by
 audit chain has no equivalent escape, because the hash is computed over a structure rather than received
 as one.
 
-**Resolution:** _(written by a human)_
+**Resolution — RESOLVED 2026-08-17, recommendation accepted by the author ("let's go with yours").**
+
+**Two formats, two jobs.** JSON is a format for *exchanging* data; a hash needs a format for
+*identifying* it. The design was using one for both, and that is where the ambiguity entered.
+
+- **For reading:** `audit.jsonl` stays JSON, unchanged. The host user reads it in the transparency
+  panel (HR-10.9), which is a human-facing requirement JSON serves well.
+- **For hashing:** a **length-prefixed binary encoding**, fields in a fixed declared order. Pinned in
+  full at **HR-10.2**, with **HR-10.2a** forbidding any JSON serialiser in the hash path in any language
+  for any reason — because the failure reintroduces itself the moment someone reaches for one.
+
+Four specifics, each closing a concrete failure:
+
+| Decision | Failure it closes |
+|---|---|
+| `lp(x) = u32be(len) \|\| x` on every variable-length field | `"ab"\|\|"c"` and `"a"\|\|"bc"` are byte-identical — two entries, one hash, a forgery |
+| Capabilities **sorted ascending** | A Rust `HashSet` randomises iteration order *per process*, so the same entry hashes differently after a restart — indistinguishable from tampering |
+| `detail` as a flat sorted key/value map, closed key set per event | HR-10.7 requires `session_end` duration/bytes/reason and `session_start` transport, and the old schema had nowhere to put them |
+| Numbers as decimal ASCII, no exponent, never a float | `42`, `42.0`, and `4.2e1` are three legal JSON encodings of one value, and three different hashes |
+
+**The schema was pinned in the same decision, deliberately.** A hash chain cannot be migrated after the
+fact without breaking every hash in it, so leaving `detail` for later would have meant either a second
+chain or a lost one.
+
+**Why not RFC 8785 (JCS).** A legitimate answer, and it would have been accepted if preferred. Three
+reasons it was not the recommendation: it is still a parser and a normaliser sitting in the one component
+whose entire job is being trustworthy; its number model is JavaScript's, so integers above 2^53 cannot
+round-trip; and it requires *two* library implementations to agree, where a length-prefixed encoding only
+requires both sides to count bytes correctly. Retained as the fallback if a JSON-shaped artifact ever has
+to be hashed for a browser.
+
+**Why not define our own canonical JSON.** That is writing a new cryptographic primitive inside the audit
+chain. Rejected.
+
+**Pattern worth recording.** This was the third appearance of one disease in a single phase. Release
+verification dodged it by signing bytes **as received** (HR-12.2). The helper token dodges it by
+length-prefixing (BLK-3). The audit chain had **no** dodge available, because its hash is computed over a
+structure rather than received as one — so it needed the fix that removes structure from the equation
+entirely. Canonicalisation ambiguity has broken more signature schemes than weak cryptography has.

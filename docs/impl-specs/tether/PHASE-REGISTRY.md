@@ -7,11 +7,22 @@ phase completes ([implementation-workflow.md §7](../../implementation-workflow.
 in one place, that the phases ran in order, what was decided along the way, and what is still open —
 without reconstructing it from a commit log.
 
-**Current state: workflow phase 0.1 complete on branch `phase-0-foundations`.** Spec phase 0 is **not**
-complete — see the row below and [gates/phase-0.1.md](gates/phase-0.1.md).
+**Current state: workflow phase 0.1 complete on branch `phase-0-foundations`, and all eight gates pass
+on a clean re-run** — no override, no waiver, no open blocker. See the gate re-run section at the end of
+[gates/phase-0.1.md](gates/phase-0.1.md).
 
-[BLOCKERS.md](BLOCKERS.md) has **12** open entries. Under workflow §4.1 no phase may start; 0.1 ran on
-an explicit human override, recorded as an override in its gate 1 block rather than as a pass.
+**Spec phase 0 is still NOT complete.** Three exit criteria are unmet and none is an engineering
+decision: the YubiKey signing ceremony (~$75 of hardware), the three-way audit-key wrap (2× WebAuthn
+authenticators plus the panel domain), and byte-identical builds from a *different* source path
+(`--remap-path-prefix` procedure documented but not exercised). HR-15.1 is **not** cleared for spec
+phase 1.
+
+[BLOCKERS.md](BLOCKERS.md): **13 raised, 13 resolved, 0 open.** Twelve resolved by author decision on
+2026-08-17; BLK-9 descoped with its constraint retained as a hard precondition on Phase 0.2 and Phase 4.
+
+[AMENDMENTS.md](AMENDMENTS.md): **2 proposed, 0 decided.** AMD-1 (spec §4.4) and AMD-2 (spec §4.7). Under
+workflow §4.2 these block **Phase 5** and **Phase 4** respectively, not phase 0.1 — both correct
+behaviour is already recorded in HARD-RULES, so nothing is unsafe in the meantime.
 
 ---
 

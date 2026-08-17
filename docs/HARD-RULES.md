@@ -320,7 +320,46 @@ per frame: ctr   = explicit 48-bit counter carried in the frame header
 
 **HR-10.1** Four properties must hold simultaneously: the admin can read it, the server cannot, nobody can forge it, and **nobody can silently truncate it**.
 
-**HR-10.2** On the host (authoritative): append-only `$DATA/audit.jsonl`, entry `{seq, ts, event, client_key_fp, client_ip, capabilities, prev_hash, hash}` with `hash = BLAKE2s(prev_hash || canonical_json(entry_without_hash))`. Filesystem enforcement: `chattr +a` on Linux, ACL denying `DELETE` and `WRITE_DATA` on Windows. The host keeps full plaintext forever; the server's copy is a replica.
+**HR-10.2** On the host (authoritative): append-only `$DATA/audit.jsonl`. Filesystem enforcement: `chattr +a` on Linux, ACL denying `DELETE` and `WRITE_DATA` on Windows. The host keeps full plaintext forever; the server's copy is a replica.
+
+**Stored entry** (JSON, for humans — the host user reads this in the transparency panel, HR-10.9):
+
+```
+{ seq, ts, event, client_key_fp, client_ip, capabilities, detail, prev_hash, hash }
+```
+
+`detail` is a flat map of event-specific strings, drawn from a **closed set of keys per event type**. It exists because HR-10.7 requires `session_end` to record duration, bytes, and reason, and `session_start` to record transport, and the previous schema had nowhere to put them.
+
+> **DELIBERATE DEVIATION FROM THE SPEC — cited per the BLK-10 resolution. Resolves BLK-13.**
+> `implementation-spec-v4.md` §4.7 specifies `hash = BLAKE2s(prev_hash || canonical_json(entry_without_hash))`. **`canonical_json` is never defined** — not there, and previously not here. Key ordering, number formatting, unicode escaping, and whitespace are all left open, and the host writes this chain in **Rust** while the panel verifies it in **browser JavaScript**. Any disagreement makes an *intact* chain fail verification, which HR-10.4 renders as `TRUNCATED — N entries missing`: the tamper alarm firing on healthy data, which is how a real alarm comes to be ignored. A verifier made lenient to silence that noise would accept a *forged* entry instead.
+>
+> The chain hash therefore does **not** run over JSON. JSON is a format for *exchanging* data; a hash needs a format for *identifying* it.
+
+**Chain hash** — over a length-prefixed binary encoding, fields in exactly this order:
+
+```
+hash = BLAKE2s(
+    prev_hash                      32 bytes, raw
+ || u64be(seq)
+ || u64be(ts_unix_millis)
+ || lp(event)                      UTF-8
+ || client_key_fp                  32 bytes, raw
+ || lp(client_ip)                  UTF-8, textual form
+ || u32be(count(capabilities))
+ || lp(capability) for each        ASCENDING by name  <-- see below
+ || u32be(count(detail))
+ || lp(key) || lp(value) for each  ASCENDING by key
+)
+
+lp(x) = u32be(byte_length(x)) || x
+```
+
+- **`lp()` on every variable-length field is the whole point.** Bare concatenation is ambiguous: `"ab"||"c"` and `"a"||"bc"` are byte-identical, so two different entries can share one hash. That is a forgery, and it is the same defect HR-7.4's token had (BLK-3).
+- **Capabilities are sorted ascending, always.** A Rust `HashSet` randomises iteration order *per process*, so an unsorted list gives the same entry a different hash on every restart — indistinguishable from tampering.
+- **Numbers in `detail` are decimal ASCII**, no sign for positives, no leading zeros, no exponent. Never a float.
+- The same encoding covers HR-10.4's checkpoint. It has no JSON path either.
+
+**HR-10.2a** Nothing in the chain hash may be computed by a JSON serialiser, in any language, for any reason. If you find yourself needing canonical JSON, you have reintroduced BLK-13.
 
 **HR-10.3** Uploaded entries are HPKE-sealed to the admin public key. The host holds **no admin secret**. Server stores `(device_id, seq, prev_hash, hash, ciphertext)` — hashes in plaintext so the chain verifies without decryption. Batched every 60s; immediate for `session_start`, `session_end`, `capability_granted`.
 
@@ -476,7 +515,7 @@ HR-10.7 logs file names while the never-logged list forbids "locally opened file
 **A-8 — Where the revocation epoch lives (blocks Phase 1).**
 HR-5.6 says "outside the main database" without saying where. It needs to be somewhere a `pg_dump` restore cannot roll back and a compromised control plane cannot lower.
 
-**A-10 — `canonical_json` is never defined, and the audit chain cannot work without it (blocks Phases 4 and 8). Tracked as BLK-13.**
+**A-10 — RESOLVED 2026-08-17. `canonical_json` was never defined; the chain hash no longer uses JSON.** See **HR-10.2**, which now pins a length-prefixed binary encoding, sorted capabilities, an explicit `detail` map, and HR-10.2a forbidding any JSON serialiser in the hash path. Tracked and closed as BLK-13. Original statement of the problem, retained because the reasoning is the useful part:
 HR-10.2 and spec §4.7 both specify `hash = BLAKE2s(prev_hash || canonical_json(entry_without_hash))`, and neither document says what canonical JSON *is* — key ordering, number formatting, unicode escaping, whitespace, or how absent fields are treated. The host writes the chain in Rust; the panel verifies it in browser JavaScript. Two serialisations that differ in any of those respects produce different hashes, so an intact chain fails verification and HR-10.4 renders it as **`TRUNCATED — N entries missing`**: the tamper alarm firing on healthy data, which is how a real alarm gets ignored. The same undefined operation is signed in HR-10.4's checkpoint. Related and unresolved with it: the fixed entry schema has **no field** for what HR-10.7 requires — `session_end`'s duration, bytes, and reason, or `session_start`'s transport. Adding one changes the hash input, so the shape must be pinned before Phase 8 writes the first entry.
 
 **A-9 — WebAuthn RP ID after the domain split (affects Phase 4).**

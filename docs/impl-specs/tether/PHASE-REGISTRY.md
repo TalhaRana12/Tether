@@ -7,8 +7,11 @@ phase completes ([implementation-workflow.md §7](../../implementation-workflow.
 in one place, that the phases ran in order, what was decided along the way, and what is still open —
 without reconstructing it from a commit log.
 
-**Current state: nothing started.** No code exists in the repo, and
-[BLOCKERS.md](BLOCKERS.md) has 11 open entries, so under workflow §4.1 no phase may start.
+**Current state: workflow phase 0.1 complete on branch `phase-0-foundations`.** Spec phase 0 is **not**
+complete — see the row below and [gates/phase-0.1.md](gates/phase-0.1.md).
+
+[BLOCKERS.md](BLOCKERS.md) has **12** open entries. Under workflow §4.1 no phase may start; 0.1 ran on
+an explicit human override, recorded as an override in its gate 1 block rather than as a pass.
 
 ---
 
@@ -20,7 +23,7 @@ is a test that runs, not a judgement.
 
 | Spec phase | Title | Effort | Workflow phases | Status | Exit criterion met |
 |---|---|---|---|---|---|
-| 0 | Foundations | 2 wk | not decomposed | NOT STARTED | — |
+| 0 | Foundations | 2 wk | **0.1 done**; 0.2 blocked | **IN PROGRESS** | **NO** — 3 of 6 criteria unmet |
 | 1 | Control plane | 3 wk | not decomposed | NOT STARTED | — |
 | 2 | Host agent skeleton | 3–3.5 wk | not decomposed | NOT STARTED | — |
 | 3 | Pairing, Noise, and the SAS | 3 wk | not decomposed | NOT STARTED | — |
@@ -50,7 +53,12 @@ decomposed into these before work starts; the decomposition is recorded here as 
 
 | # | Spec phase | Delivered | Proof (gate file) | Commits | BLK raised | AMD applied | Date |
 |---|---|---|---|---|---|---|---|
-| _(none yet)_ | | | | | | | |
+| 0.1 | 0 | Workspace (8 crates) · wire protocol v1 with HR-1.1 absences enforced · HR-1.6 version floor · HR-12.2/12.3 release + rollback verification · reproducibility fix · THREAT-MODEL, SECURITY-REVIEW | [phase-0.1.md](gates/phase-0.1.md) — 43 tests | see `git log phase-0-foundations` | **BLK-12** | none | 2026-08-17 |
+
+**Phase 0.2 — blocked, not scheduled.** The remainder of spec phase 0: YubiKey signing ceremony,
+Sigstore end-to-end on a dummy artifact, admin audit keypair with the three independent wraps,
+control-plane SPKI + server identity pin, and CI wiring. Requires hardware (~$75), a panel domain
+(BLK-9), and a remote. None is an engineering decision.
 
 **Proof** links the phase's `gates/phase-<n>.md`, whose gate 5 and gate 7 blocks must be present and
 passing before `impl-phase-commit` will commit — see [gates/_TEMPLATE.md](gates/_TEMPLATE.md).

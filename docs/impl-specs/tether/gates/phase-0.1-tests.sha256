@@ -1,0 +1,4 @@
+﻿0af17b3c45c0134217609967237ed9a05bd5de8775d63f1d6e203cab200f90b4  crates/proto/tests/protocol_absence.rs
+29168761d2fffeb5b9fa4066f0f8de2b0243081602e190f96fab737a87c85344  crates/proto/tests/version_floor.rs
+6c3c34e002390b2cb74b52472207f4a6363bab6c575ee3a95f06c35e427da524  crates/agent-core/tests/rekor_inclusion.rs
+6e55ea56559fbc63d39cdaf8c8ad98755832f7cf65e393d5883a419cb55ddcaa  crates/agent-core/tests/release_verification.rs

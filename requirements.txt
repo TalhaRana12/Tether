@@ -1,0 +1,62 @@
+# tether — toolchain requirements
+# Windows 10 Pro 19045 x64, TPM 2.0 present.  Verified 2026-08-17.
+#
+# NOT a Python manifest — this project has no Python. `pip install -r` fails.
+# Authoritative manifests once Phase 0 creates them: rust-toolchain.toml (pins
+# the compiler, required by HR-12.5 reproducibility), Cargo.lock, go.sum,
+# build.gradle.kts, deny.toml.  Nothing reads this file, so it will drift.
+
+## Installed 2026-08-17
+
+rustup                  1.29.0
+rustc                   1.97.1          # stable-x86_64-pc-windows-msvc
+cargo                   1.97.1          # msvc, not gnu: agent needs CNG/TPM, DXGI, WTS
+clippy                  0.1.97          # CI gate: cargo clippy -- -D warnings
+rustfmt                 1.9.0-stable    # CI gate: cargo fmt --check
+cargo-deny              0.20.2          # CI gate: advisories, licences, untrusted registries (T16)
+VS 2022 Build Tools     17.14.37516.0   # MSVC 14.44.35207 + VCTools + Windows SDK
+protoc                  35.1            # wire protocol; also where HR-1.1's absent messages live
+cosign                  3.1.3           # Rekor inclusion proof = check 2 of 4 in spec §6.1
+govulncheck             go1.26.5        # CI gate; reachability-based, so low noise
+Temurin JDK             21.0.12 LTS     # C:\Program Files\Eclipse Adoptium\jdk-21.0.12.8-hotspot
+
+## Already present
+
+go                      1.26.5          # spec needs 1.22+
+git                     2.44.0
+Android SDK             platform 36, build-tools 35.0.0, NDK 28.2, at C:\Android
+JDK 26.0.1 / 17.0.18                    # 26 is the system default — see gotchas
+node 22.13.0 / python 3.11.9            # incidental, not required
+
+## Gotchas that cost real time
+
+# 1. Rust msvc ships NO linker. Without Build Tools every build dies with
+#    "linker `link.exe` not found" while rustc --version looks perfectly healthy.
+#    Only `cargo build` proves the toolchain. cargo finds link.exe via vswhere,
+#    so it is deliberately not on PATH — do not "fix" that.
+# 2. System default JDK is 26, which the Android Gradle Plugin rejects. JAVA_HOME
+#    left alone on purpose; pin per-project in android/gradle.properties:
+#      org.gradle.java.home=C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.12.8-hotspot
+# 3. cosign's winget alias is `cosign-windows-amd64`, and it wants
+#    `cosign version`, not --version. Same for `go version`.
+
+## Deliberately not installed
+
+# gradle          — the wrapper pins per project; a system copy is a second
+#                   unpinned version, against HR-12.5
+# cargo-fuzz      — Phase 8, and needs libFuzzer: not supported on Windows.
+#                   HR-15.6's >=24 CPU-hours per target needs WSL2 or Linux.
+# tailwind, htmx  — vendored with SRI under CSP 'self' (HR-9.7), not npm deps
+# postgres, coturn— Phase 1; coturn must not share a host with the control
+#                   plane (HR-11.1)
+
+## Required, not installable
+
+# [ ] YubiKey, touch policy `always`   HR-12.1 — nothing online may sign a release
+# [ ] 2x WebAuthn authenticators       HR-9.2, HR-4.5 — no password fallback anywhere
+# [ ] paper for the 256-bit recovery secret   HR-4.5 — third of three wraps
+# [ ] second registrable domain for the panel HR-9.1 — blocks Phase 0, see BLK-9
+#     ~$75 one-off + ~$12/yr (spec §9)
+
+# Blockers are NOT listed here — see docs/impl-specs/tether/BLOCKERS.md.
+# One copy only; two would disagree the moment one is resolved.

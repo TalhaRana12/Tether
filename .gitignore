@@ -1,0 +1,42 @@
+# Rust
+/target/
+**/target/
+
+# Cargo.lock IS committed deliberately — HR-12.5 requires two builds of the same
+# commit to be byte-identical, and that is impossible without pinned dependency
+# versions. Do not add it here.
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/control/control
+/control/admin
+
+# Android / Gradle
+.gradle/
+**/build/
+local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# Release artifacts and signing material.
+# No private key may ever be committed (HR-0.3, WORKING-AGREEMENT §4).
+# Public halves ARE committed on purpose — they are pinned into agent builds.
+/dist/
+*.sig
+!keys/**/*.pub
+!keys/**/*.pem.pub
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini

@@ -8,21 +8,37 @@ The wide scope is the point: a blocker raised at phase 3 about a stored shape is
 later phase builds on top of, so letting phase 7 proceed only buries it deeper. An unanswered
 question stops the build — that is the mechanism behind "nothing goes without being seen."
 
-**Resolution fields are written by a human.** An agent never fills one in.
+**Resolution fields are written by a human.** An agent never fills one in. Every `RESOLVED` entry below
+records a decision made by the author on 2026-08-17; where the wording says "recommendation accepted",
+the option was chosen by the author from the options listed in that record.
 
-**Current state: 12 open, 0 resolved. The module is halted.**
+**Current state — 2026-08-17: 12 resolved, 1 open (BLK-13). The module remains halted on that one.**
 
-BLK-12 was raised during workflow phase 0.1 by the work itself — the shape it asks
-about was reached while implementing, which is the mechanism functioning rather than
-failing.
+| Blocker | Status | Notes |
+|---|---|---|
+| BLK-1 media key salt | RESOLVED | option B; spec fix as AMD-1 |
+| BLK-2 epoch width | RESOLVED | option A, 48-bit big-endian |
+| BLK-3 helper token key | RESOLVED | option A, dedicated `key_helper` |
+| BLK-4 unattended vs lock screen | RESOLVED | option A, stated at opt-in |
+| BLK-5 consent flooding | RESOLVED | option A, cooldown + quarantine |
+| BLK-6 delete-user cascade | RESOLVED | option A, tombstone |
+| BLK-7 filename logging | RESOLVED | option B **conditional on panel copy** |
+| BLK-8 revocation epoch | RESOLVED | option A, off-box append-only |
+| BLK-9 panel domain | **DESCOPED** | constraint retained as a Phase 0.2 / 4 precondition |
+| BLK-10 document authority | RESOLVED | option C |
+| BLK-11 language rule files | RESOLVED | option C |
+| BLK-12 Rekor trust root | RESOLVED | option A, pinned log key + checkpoint |
+| **BLK-13 `canonical_json`** | **OPEN** | blocks Phases 4 and 8 |
 
-BLK-1 through BLK-9 are [HARD-RULES.md](../../HARD-RULES.md) Appendix A transcribed into Blocker
-Record form — the spec author's own list of places not to guess. BLK-10 and BLK-11 were raised by
-reconciling the four documents against each other on 2026-08-17.
+Origins: BLK-1 through BLK-9 are [HARD-RULES.md](../../HARD-RULES.md) Appendix A transcribed into
+Blocker Record form — the spec author's own list of places not to guess. BLK-10 and BLK-11 came from
+reconciling the four documents against each other. **BLK-12 and BLK-13 were raised by the work itself** —
+BLK-12 while implementing release verification, BLK-13 while diffing HARD-RULES against the spec. Two of
+thirteen surfaced only because code got written, which is the argument for writing some.
 
 ---
 
-## BLK-1 — Media key derivation input is probably wrong            [OPEN]
+## BLK-1 — Media key derivation input is probably wrong            [RESOLVED]
 **Spec phase:** 5   **Workflow phase:** —   **Raised:** 2026-08-17   **Gate:** 2 (Reconcile), pre-flight
 **Where:** spec §4.4 (media key schedule) · HARD-RULES A-1, HR-4.3, HR-4.3e
 **The question:** what exactly is the `salt` input to `HKDF-Extract` for the media key schedule?
@@ -52,11 +68,23 @@ exactly the right input there, and the fix must not "helpfully" alter it.
 **If unanswered I will:** stop. No provisional stub — this is a wire-observable cryptographic
 construction, and a placeholder that later ships is the failure mode this record exists to prevent.
 
-**Resolution:** _(written by a human)_
+**Resolution - RESOLVED 2026-08-17, option B, by the author (recommendation accepted).**
+Media keys derive from **secret** Noise output: a Noise exporter over the chaining key `ck`, falling
+back to the `Split()` CipherState keys if `snow` and `noise-java` cannot be made to agree on an
+exporter. The handshake hash `h` is **not key material** and must never be used as such.
+
+Explicitly preserved: `h` remains the input to the **SAS** (HR-3.1 step 6). The SAS needs a value both
+ends compute and an attacker cannot *predict*, not a secret one. A future "consistency" fix that
+replaced `h` everywhere would break pairing.
+
+HR-4.3 now carries the deviation citation inline. The spec section 4.4 correction is raised as **AMD-1**,
+proposed and held until Phase 5 opens, because workflow section 4.2 forbids amending another phase's
+section. Blocks nothing today: no media code exists, and `tether.proto` deliberately omits the frame
+header.
 
 ---
 
-## BLK-2 — `epoch` field width and byte order are unstated            [OPEN]
+## BLK-2 — `epoch` field width and byte order are unstated            [RESOLVED]
 **Spec phase:** 5   **Workflow phase:** —   **Raised:** 2026-08-17   **Gate:** 2 (Reconcile), pre-flight
 **Where:** spec §4.4 · HARD-RULES A-2, HR-4.3
 **The question:** how many bits is `epoch`, in what byte order is `epoch || ctr` concatenated, and
@@ -79,11 +107,18 @@ written from prose will disagree exactly once, in production, on a rekey boundar
 
 **If unanswered I will:** stop. Wire shape, observable from outside the process.
 
-**Resolution:** _(written by a human)_
+**Resolution - RESOLVED 2026-08-17, option A, by the author (recommendation accepted).**
+`epoch` is **48 bits, big-endian** (network order). `epoch || ctr` concatenates to exactly the 12-byte
+salt width with no padding.
+
+Condition attached: before Phase 5 writes an encoder, the frame header must be pinned as an explicit
+**byte-offset table** in the `.proto` comment, not as prose. A Rust encoder and a Kotlin decoder written
+from prose disagree exactly once - in production, on a rekey boundary. The header is also the AEAD's AAD
+(HR-4.3), so its layout is covered by the MAC and cannot be corrected later without a version bump.
 
 ---
 
-## BLK-3 — Who holds `noise_session_key` for helper token verification            [OPEN]
+## BLK-3 — Who holds `noise_session_key` for helper token verification            [RESOLVED]
 **Spec phase:** 7   **Workflow phase:** —   **Raised:** 2026-08-17   **Gate:** 2 (Reconcile), pre-flight
 **Where:** spec §6.2, §6.9 · HARD-RULES A-3, HR-7.4
 **The question:** the input helper must verify `HMAC(noise_session_key, "input" || session_id ||
@@ -108,11 +143,19 @@ ambiguity, and two different tuples that serialise identically is a forgery.
 
 **If unanswered I will:** stop. This is a local IPC wire shape plus a security property.
 
-**Resolution:** _(written by a human)_
+**Resolution - RESOLVED 2026-08-17, option A, by the author (recommendation accepted).**
+The worker derives `key_helper = HKDF-Expand(base, "helper-token", 32)` and hands **only that** to the
+privileged helper at session start. The helper can verify input tokens and decrypt nothing, so HR-7.1's
+"privileged components hold no session keys" survives in substance rather than by wording.
+
+The HMAC input is **length-prefixed**, not bare concatenation. This is not fussiness: `"input" || "ab" ||
+"c"` and `"input" || "a" || "bc"` produce byte-identical input and therefore an identical MAC, so two
+different session/expiry tuples share one valid token. That is a forgery. Demonstrated concretely while
+investigating BLK-13.
 
 ---
 
-## BLK-4 — Unattended access versus an unreachable lock screen            [OPEN]
+## BLK-4 — Unattended access versus an unreachable lock screen            [RESOLVED]
 **Spec phase:** 5, 8, 10   **Workflow phase:** —   **Raised:** 2026-08-17   **Gate:** 2, pre-flight
 **The question:** given that the lock screen is uncapturable, what does "unattended access" actually
 deliver, and does the onboarding copy say so plainly?
@@ -136,11 +179,18 @@ what needs approving.
 **If unanswered I will:** stop before writing the mode-selection UI copy. Phase 8's consent gate
 itself is unaffected and can proceed.
 
-**Resolution:** _(written by a human)_
+**Resolution - RESOLVED 2026-08-17, option A, by the author (recommendation accepted).**
+Unattended mode ships, and the limitation is stated **at the moment of opt-in**, not buried. The
+mode-selection UI must say plainly that unattended access applies only to a machine that is logged in
+and unlocked, because the lock screen is uncapturable (HR-14.2). The Phase 10 onboarding doc repeats it.
+
+The point of the condition: unattended access is the honest reason most people install remote desktop
+software, so letting them discover its real scope after the fact would be the dishonest choice HR-3.4
+forbids elsewhere.
 
 ---
 
-## BLK-5 — Nothing rate-limits `connect_request`            [OPEN]
+## BLK-5 — Nothing rate-limits `connect_request`            [RESOLVED]
 **Spec phase:** 8   **Workflow phase:** —   **Raised:** 2026-08-17   **Gate:** 2, pre-flight
 **Where:** spec §4.9 · HARD-RULES A-5, HR-2.1
 **The question:** what limits how many consent prompts a paired device can generate?
@@ -163,11 +213,18 @@ they are user-visible behaviour.
 **If unanswered I will:** stop before implementing the consent gate's request handler. Note this is
 the largest single item in spec phase 8 (HR-15.4), so this blocker is on the critical path.
 
-**Resolution:** _(written by a human)_
+**Resolution - RESOLVED 2026-08-17, option A, by the author (recommendation accepted).**
+Three controls, all host-side: an **escalating per-device cooldown** after a Deny; a **cap on outstanding
+prompts**; and **auto-quarantine after 3 consecutive denials**, clearable only on the host. Denials
+already log under HR-10.7, so a quarantine is visible in the audit trail rather than silent.
+
+Rationale worth keeping: the attack is not to be allowed. It is to be annoying enough, often enough, at
+3am, that someone taps Allow to stop the buzzing. A control that can be worn down is HR-2.9's problem
+wearing an authorization's name.
 
 ---
 
-## BLK-6 — Delete-user cascade-deletes audit replicas            [OPEN]
+## BLK-6 — Delete-user cascade-deletes audit replicas            [RESOLVED]
 **Spec phase:** 4   **Workflow phase:** —   **Raised:** 2026-08-17   **Gate:** 2, pre-flight
 **Where:** spec §5.1 (Delete user) · HARD-RULES A-6, HR-9.9, HR-10.1
 **The question:** is a one-click admin path that destroys server-side audit history compatible with
@@ -191,11 +248,19 @@ data, and stops a routine admin action from looking exactly like the attack HR-1
 
 **If unanswered I will:** stop before implementing `DEL /admin/users/:id`. Other panel routes proceed.
 
-**Resolution:** _(written by a human)_
+**Resolution - RESOLVED 2026-08-17, option A, by the author (recommendation accepted).**
+Delete-user does **not** silently cascade into audit replicas. Destroying server-side replicas is a
+**separate, step-up-gated, separately-audited** operation that writes a retention tombstone
+`(device_id, max_seq, head_hash, deleted_at, admin)`.
+
+The tombstone is the substantive part: without it the panel renders a legitimate deletion as HR-10.4's
+`TRUNCATED - N entries missing`, making a routine admin action indistinguishable from the attack that
+alarm exists to detect. With it, the panel says "deleted by admin". The host copy remains authoritative
+and untouched (HR-10.2), which is what makes the operation defensible at all.
 
 ---
 
-## BLK-7 — `file_transfer` logs the filename            [OPEN]
+## BLK-7 — `file_transfer` logs the filename            [RESOLVED]
 **Spec phase:** 9   **Workflow phase:** —   **Raised:** 2026-08-17   **Gate:** 2, pre-flight
 **Where:** spec §5.3 · HARD-RULES A-7, HR-10.7, HR-10.8
 **The question:** does the `file_transfer` audit entry record the filename, or only direction and size?
@@ -219,11 +284,18 @@ that is the documentation-and-code-disagree defect, applied to a promise rather 
 **If unanswered I will:** stop before implementing the file-transfer audit entry. Spec phase 9 is
 cuttable entirely under HR-15.4, so this is the lowest-urgency blocker here.
 
-**Resolution:** _(written by a human)_
+**Resolution - RESOLVED 2026-08-17, option B with its condition, by the author.**
+The filename **is** logged, **and** the host transparency panel (HR-10.9) must name that in plain
+language so the host user knows before transferring anything. If that copy is not written, the fallback
+is option A - direction and size only.
+
+What must not happen, and this is the whole condition: logging the filename while the panel implies
+content-adjacent data is never recorded. A filename is metadata about someone's machine, and HR-10.8's
+line about becoming monitoring software is why this needed an explicit decision rather than a default.
 
 ---
 
-## BLK-8 — Where the revocation epoch lives            [OPEN]
+## BLK-8 — Where the revocation epoch lives            [RESOLVED]
 **Spec phase:** 1   **Workflow phase:** —   **Raised:** 2026-08-17   **Gate:** 2, pre-flight
 **Where:** spec §6.23, Phase 1 · HARD-RULES A-8, HR-5.6
 **The question:** HR-5.6 requires the monotonic revocation epoch be persisted "outside the main
@@ -250,11 +322,19 @@ criterion requires that restoring yesterday's dump makes the control plane refus
 
 **If unanswered I will:** stop. This blocks the first phase that writes server code.
 
-**Resolution:** _(written by a human)_
+**Resolution - RESOLVED 2026-08-17, option A, by the author (recommendation accepted).**
+The monotonic revocation epoch lives in the **append-only object storage of HR-11.3** - separate cloud
+account, its own credentials, write-only from the control plane. The epoch is the object count / highest
+key.
+
+Chosen because it is the only option where "cannot be lowered" is enforced by something **other than the
+possibly-compromised machine's own good behaviour**. T1 assumes the control plane is fully compromised,
+so storing the guard where that machine can rewrite it would be circular. Phase 1's exit criterion must
+exercise both the startup check and the alert path, not just the storage.
 
 ---
 
-## BLK-9 — WebAuthn RP ID must be fixed before any authenticator is registered            [OPEN]
+## BLK-9 — WebAuthn RP ID must be fixed before any authenticator is registered            [RESOLVED]
 **Spec phase:** **0** (HARD-RULES A-9 says 4 — see below)   **Workflow phase:** —   **Raised:** 2026-08-17   **Gate:** 2, pre-flight
 **Where:** spec §5.4, Phase 0 · HARD-RULES A-9, HR-9.1, HR-9.2
 **The question:** what is the panel's registrable domain?
@@ -279,11 +359,22 @@ control in the document, and it is the single cheapest blocker on this list to c
 **If unanswered I will:** stop. Nothing in phase 0 that touches WebAuthn may proceed. The Cargo
 workspace, protobuf schema, and CI setup are unaffected and can proceed as a separate workflow phase.
 
-**Resolution:** _(written by a human)_
+**Resolution - DESCOPED 2026-08-17 by the author: "we don't need the domain yet".**
+This no longer blocks any phase. The **constraint it existed to protect is retained**, because dropping
+that would be a silent security reduction rather than a descoping:
+
+> The panel must be served from a **separate registrable domain** (HR-9.1), and its name must be fixed
+> **before any WebAuthn authenticator is registered.** Registration binds every credential to that name
+> as the RP ID. Changing it afterwards invalidates both `prf` wraps of the admin audit key, leaving only
+> the paper recovery secret - the last of three copies, with no fourth anywhere (HR-4.5).
+
+Recorded as a **hard precondition on Phase 0.2 and Phase 4** rather than as an open blocker. Nothing may
+register an authenticator until the name exists. Five threats stay unmitigated until then and are marked
+BLOCKED in THREAT-MODEL.md: T14, T22, T27, T28, plus the audit chain.
 
 ---
 
-## BLK-10 — Two documents claim conflicting authority            [OPEN]
+## BLK-10 — Two documents claim conflicting authority            [RESOLVED]
 **Spec phase:** all   **Workflow phase:** —   **Raised:** 2026-08-17   **Gate:** 2 (Reconcile), pre-flight
 **Where:** [HARD-RULES.md](../../HARD-RULES.md) line 7 · [implementation-workflow.md](../../implementation-workflow.md) §8
 **The question:** when [HARD-RULES.md](../../HARD-RULES.md) and
@@ -334,7 +425,7 @@ otherwise have had to guess or stop.
 
 ---
 
-## BLK-11 — The binding language rule files do not exist, and name the wrong languages            [OPEN]
+## BLK-11 — The binding language rule files do not exist, and name the wrong languages            [RESOLVED]
 **Spec phase:** all   **Workflow phase:** —   **Raised:** 2026-08-17   **Gate:** 2 (Reconcile), pre-flight
 **Where:** [implementation-workflow.md](../../implementation-workflow.md) §8, §6 (fast gate)
 **The question:** what are the binding per-language rules for **Rust** and **Kotlin**, and does
@@ -373,11 +464,20 @@ by amendment — they reference languages this project does not use, and a bindi
 non-existent file for a non-existent language is the documentation-and-code-disagree defect in the
 process documents themselves.
 
-**Resolution:** _(written by a human)_
+**Resolution - RESOLVED 2026-08-17, option C, by the author.**
+Seed `docs/engineering/{rust,kotlin,go}-hard-rules.md` with the rules the spec and HARD-RULES already
+imply - no `unsafe` outside named crates, no `unwrap` on a network path, no wall-clock for a local expiry
+(HR-6.1) - and grow each as phases surface findings. Amend workflow section 8 to name those three and
+**drop `python-hard-rules.md` and `react-hard-rules.md`**, which bind this project to languages it does
+not use.
+
+Rationale is the workflow's own advice (section 6): found the same class of problem three times? Stop
+finding it manually. A rule discovered by a phase and written down immediately is worth more than a
+comprehensive document written before any code exists.
 
 ---
 
-## BLK-12 — The Rekor entry body and log trust root are unpinned            [OPEN]
+## BLK-12 — The Rekor entry body and log trust root are unpinned            [RESOLVED]
 **Spec phase:** 0 (verification logic), 10 (auto-updater)   **Workflow phase:** 0.1
 **Raised:** 2026-08-17   **Gate:** 4 (Implement)
 **Where:** `crates/agent-core/src/release.rs` (`manifest_digest`, `verify_logged`) ·
@@ -418,7 +518,20 @@ but it is verified against **synthetic** trees built by an independent reference
 `tests/rekor_inclusion.rs`, not against captured Rekor proofs. Carries `TODO(BLK-12)` at the site, in
 the exact form gate 7's TODO grep accepts.
 
-**Resolution:** _(written by a human)_
+**Resolution - RESOLVED 2026-08-17, option A, by the author (recommendation accepted).**
+Pin the Rekor v1 `hashedrekord` entry body as the leaf, **and** require a **signed checkpoint** (signed
+tree head) verified against a Rekor public key **compiled into the binary** alongside the release key.
+
+This is the same pattern the design already uses for every other trust root - HR-4.9 pins the server
+identity key, HR-4.8 pins an epoch-stamped admin key list - so it adds no new mechanism, only another
+pinned key that rotates through the signed release channel.
+
+The checkpoint is the load-bearing half. A Merkle inclusion proof only proves membership in a tree with a
+**given** root; without an attested root, an attacker who supplies both the proof and the root satisfies
+HR-12.2 check 2 trivially, and the whole detectability property of T5/T16 evaporates.
+
+Still open in code: `TODO(BLK-12)` stays at `crates/agent-core/src/release.rs` until the entry body is
+pinned and the synthetic test trees are replaced with captured Rekor proofs. Blocks Phase 10 only.
 
 ---
 

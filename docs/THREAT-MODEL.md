@@ -50,7 +50,7 @@ protocol absences, because no other phase has run.
 | T19 | Forged mass revoke / DoS | 2,4 | **PARTIAL** | Structural: no `wipe` in the schema, and [`RevokeDevice`](../crates/proto/proto/tether/v1/tether.proto) documents that it destroys nothing (HR-1.7) |
 | T20 | QR capture during screen share | 3 | PLANNED | SAS is Phase 3 |
 | T21 | TURN → SSRF → VPS takeover | 1,5 | PLANNED | `turnserver.conf` + CI test are Phase 1 |
-| T22 | Offline brute force of audit key | 4 | BLOCKED | BLK-9. No passphrase exists anywhere in this repo (HR-4.6) |
+| T22 | Offline brute force of audit key | 0, 4 | **PARTIAL** | The structural mitigation is done and **proven**: the keygen page has no passphrase input, asserted by a Playwright test that was mutation-tested (adding `<input type="password">` turns it red). §6.8's attack needs a guessable input and there is none. The recovery-secret wrap uses 256 CSPRNG bits — also mutation-tested. Wraps 1 and 2 await authenticators |
 | T23 | `uinput` as Wayland escape | 7 | PLANNED | HR-7.5 recorded in [`helper-linux/src/main.rs`](../crates/helper-linux/src/main.rs) so it cannot be forgotten |
 | T24 | Home IP via ICE candidates | 5 | PLANNED | |
 | T25 | Malicious host attacks client | 6,9 | PLANNED | Decoder caps are Phase 6 |

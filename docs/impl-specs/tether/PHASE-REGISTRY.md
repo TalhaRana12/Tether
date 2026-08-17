@@ -64,12 +64,21 @@ decomposed into these before work starts; the decomposition is recorded here as 
 
 | # | Spec phase | Delivered | Proof (gate file) | Commits | BLK raised | AMD applied | Date |
 |---|---|---|---|---|---|---|---|
-| 0.1 | 0 | Workspace (8 crates) · wire protocol v1 with HR-1.1 absences enforced · HR-1.6 version floor · HR-12.2/12.3 release + rollback verification · reproducibility fix · THREAT-MODEL, SECURITY-REVIEW | [phase-0.1.md](gates/phase-0.1.md) — 43 tests | see `git log phase-0-foundations` | **BLK-12** | none | 2026-08-17 |
+| 0.1 | 0 | Workspace (8 crates) · wire protocol v1 with HR-1.1 absences enforced · HR-1.6 version floor · HR-12.2/12.3 release + rollback verification · reproducibility fix · THREAT-MODEL, SECURITY-REVIEW | [phase-0.1.md](gates/phase-0.1.md) — 43 tests | see `git log phase-0-foundations` | **BLK-12**, **BLK-13** | none | 2026-08-17 |
+| 0.2 | 0 | In-browser audit keypair · HR-4.5 recovery-secret wrap (1 of 3) · 256-word recovery scheme · Playwright suite + CSP-enforcing test server | [phase-0.2.md](gates/phase-0.2.md) — 10 tests, 4 mutations | see `git log phase-0-foundations` | none | none | 2026-08-17 |
 
-**Phase 0.2 — blocked, not scheduled.** The remainder of spec phase 0: YubiKey signing ceremony,
-Sigstore end-to-end on a dummy artifact, admin audit keypair with the three independent wraps,
-control-plane SPKI + server identity pin, and CI wiring. Requires hardware (~$75), a panel domain
-(BLK-9), and a remote. None is an engineering decision.
+**Totals: 53 tests (43 Rust + 10 Playwright). 6 mutation tests run, all caught.**
+
+**Phase 0.3 — blocked on purchases, not decisions.** The remainder of spec phase 0:
+
+| Item | Blocked on |
+|---|---|
+| YubiKey signing ceremony, Sigstore end-to-end on a dummy artifact | YubiKey with touch policy `always`, ~$50 |
+| Audit-key wraps 2 and 3 (authenticator A and B) | 2× WebAuthn authenticators, ~$50, **and** the panel domain first — BLK-9's retained precondition freezes the RP ID at first registration |
+| Public half committed to the epoch-stamped admin key list | follows from the above |
+| Control-plane SPKI + server identity pin | a deployed control plane (spec Phase 1) |
+| Go module (`control`, `admin`) and Gradle project (`android`) | not attempted; Phase 1 and Phase 6 territory |
+| CI workflow file, `gradle lint`, Android manifest lint gate | a remote and the Gradle project |
 
 **Proof** links the phase's `gates/phase-<n>.md`, whose gate 5 and gate 7 blocks must be present and
 passing before `impl-phase-commit` will commit — see [gates/_TEMPLATE.md](gates/_TEMPLATE.md).

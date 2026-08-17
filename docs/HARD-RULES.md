@@ -4,7 +4,11 @@
 **Status:** normative. Everything here is a constraint, not a suggestion.
 **How to use:** paste into `CLAUDE.md` / agent context at the root of the repo. Every rule has an ID. Cite the ID in code comments, PR descriptions, and commit messages when a decision is driven by one.
 
-> **Rule of interpretation.** Where this document and any other document disagree, this document wins. Where this document is silent, do not infer — see Appendix A and stop.
+> **Rule of interpretation** *(settled 2026-08-17, BLK-10)*. Where this document and any other document disagree, **this document wins — including on contracts.** Where this document is silent, do not infer — see Appendix A and stop.
+>
+> **And the condition that makes that safe:** any rule here that *deliberately* differs from `implementation-spec-v4.md` must **say so at the rule**, quoting what the spec says and why it is not being followed. Without that, a silent transcription slip becomes law and looks identical to a considered decision. HR-4.3 is the one current instance and carries its citation inline.
+>
+> A consequence worth stating, because it caused real gaps: **an omission here is not a decision.** Where this document simply failed to carry a value the spec fixed, that is a defect in this document, not licence to invent one. Seven such omissions were found and transcribed on 2026-08-17 — HR-2.10, HR-2.11, HR-2.12, HR-4.10, HR-8.6, HR-9.10, HR-11.7.
 
 ---
 
@@ -35,7 +39,16 @@ These are the rules from which most of the others are derived. If a proposed cha
 - `wipe` / `reset` / `reconfigure` — any host-side self-destruct or remote configuration
 - `elevate` and its capability token — deleted outright (§6.14)
 - any message that **approves a connection** on a user's behalf
-- any message that **sets or reads a device's access mode**
+- any message by which the **server or admin queries or sets** a device's access mode
+
+  *Scope, because HR-1.1 and HR-9.8 previously disagreed on the verb.* The prohibition
+  is on a **control-plane query or command**. It is not a claim that the access mode is
+  invisible to an admin: HR-10.7 uploads `access_mode_changed`, so an admin who can
+  unwrap the audit log learns of a change. That path is legitimate and different in
+  kind — it is **host-originated**, one-way, HPKE-sealed, and severable by the host
+  user at any time (HR-10.9). What must not exist is a message the *server* can send
+  to read or set the mode, because that is the difference between a report the user
+  controls and a capability the admin holds.
 - any message that **sets or clears a backup credential**
 - any message by which the panel or CI **signs** a release or rollback manifest
 
@@ -94,6 +107,18 @@ These are the rules from which most of the others are derived. If a proposed cha
 
 **HR-2.9** Notification is not authorization. The on-screen border, tray icon, and toast are necessary and **not sufficient**. If a control only informs the host user after the fact, it does not satisfy any rule in this section.
 
+> **HR-2.10 to HR-2.12 transcribe values fixed in spec §4.8 that this document previously
+> omitted.** They are necessary-but-insufficient notification controls under HR-2.9, not
+> authorizations — but their *parameters* are decided, and leaving them out of a normative
+> document that says "where this document is silent, do not infer — stop" turned settled
+> decisions into halts.
+
+**HR-2.10 — Persistent session indicator.** During any session: a **3px accent border on all monitors**, a tray icon, and an OS notification **at session start naming the connecting device**. The name shown is the locally-stored pairing name (HR-2.2), never the peer-supplied one. Unattended sessions are **visually distinct** from attended ones.
+
+**HR-2.11 — Kill switch.** A tray item **and** the global hotkey **`Ctrl+Alt+Shift+K`**. It terminates **all** sessions, not the focused one, and **requires explicit confirmation to resume**. Logged as `killswitch_triggered` (HR-10.7). It must work when the UI is unresponsive — that is why it is a global hotkey and not a button.
+
+**HR-2.12 — Idle timeout.** **15 minutes** without input ends the session. Resuming requires **fresh biometric authentication**, not merely reconnecting. Measured on a monotonic clock (HR-6.1) — a local attacker who moves the wall clock must not be able to extend it.
+
 ---
 
 ## 3. Pairing and the short authenticated string
@@ -136,8 +161,22 @@ These are the rules from which most of the others are derived. If a proposed cha
 
 **HR-4.3** Media encryption (SFrame-style, per-frame). The schedule is pinned:
 
+> **DELIBERATE DEVIATION FROM THE SPEC — cited per the BLK-10 resolution.**
+> `implementation-spec-v4.md` §4.4 specifies `salt = noise_handshake_hash`. **That is
+> wrong and must not be implemented.** In the Noise specification the handshake hash
+> `h` is explicitly **not secret**: it is derived from the protocol name, the static
+> public keys, and the transmitted ciphertexts, every one of which a passive relay
+> observes. If `h` is the only input to `HKDF-Extract`, the relay derives the media
+> keys and the "relay CANNOT decrypt" property in §4.4's own diagram collapses,
+> taking T1 and T2 with it. This rule requires **secret** Noise output instead — see
+> Appendix A-1 for the exact input, which is still to be pinned (BLK-1).
+>
+> Using `h` for the **SAS** (HR-3.1 step 6) is correct and must not change. The SAS
+> needs a value both ends can compute and an attacker cannot *predict*; it does not
+> need secrecy, because it is compared by a human out of band.
+
 ```
-base       = HKDF-Extract(salt = <noise session secret>, ikm = "tether-media-v1")
+base       = HKDF-Extract(salt = <secret noise output — see Appendix A-1>, ikm = "tether-media-v1")
 key_h2c    = HKDF-Expand(base, "host-to-client-key",   32)
 key_c2h    = HKDF-Expand(base, "client-to-host-key",   32)
 salt_h2c   = HKDF-Expand(base, "host-to-client-salt",  12)
@@ -167,6 +206,8 @@ per frame: ctr   = explicit 48-bit counter carried in the frame header
 **HR-4.7** At pairing time the host also registers a **backup credential** — a second paired device, or a printed 256-bit recovery key sealed into the host allowlist. Re-pairing via backup credential runs the **same Noise_IK handshake and the same 6-digit SAS**, plus: a mandatory **24-hour delay** before the new key is usable, and an alert on **every other paired device** and in the transparency panel throughout that window.
 
 **HR-4.8** Agents pin an **epoch-stamped list** of accepted admin public keys, changeable only through the signed release channel. Hosts seal to the highest-epoch key they know and keep the previous key valid for exactly one release cycle.
+
+**HR-4.10 — Media parameters (transcribed from spec §3 and Phase 5; previously omitted here).** H.264 **Main** profile, with Baseline as a **negotiated fallback only**. **No B-frames** — they add a frame of latency for a bitrate saving this project cannot spend. Adaptive bitrate from REMB/TWCC, **ceiling 2 Mbps, floor 200 kbps**. Hardware encode first (NVENC / QSV / VAAPI / AMF), `openh264` fallback.
 
 **HR-4.9** Agents pin the control plane's **SPKI** (with a backup pin for the next rotation) **and** a **pinned Ed25519 server identity key**, both compiled into the binary. TLS is a transport convenience, not a trust anchor. Every control-plane response the agent acts on — JWKS, `kill_session`, `revoke_device`, update manifests — is verified against the pinned identity key.
 
@@ -241,6 +282,8 @@ per frame: ctr   = explicit 48-bit counter carried in the frame header
 
 **HR-8.4 — Symmetric.** The host applies the same parser hardening to input events and clipboard arriving from the client. The client distrusts the host exactly as much as the host distrusts the client.
 
+**HR-8.6 — Mobile-data cost disclosure (transcribed from spec Phase 6; previously omitted here).** The client warns at session start when on mobile data, offers a **hard-cap toggle**, and **states the 0.5–2 GB/hour figure in the UI**. Not a security control, and included here for the same reason as HR-14.4: a user who agreed to something without being told its cost did not really agree. Withholding a number you know is a form of the dishonesty HR-3.4 forbids elsewhere.
+
 **HR-8.5 — Android manifest:** `allowBackup="false"`, `usesCleartextTraffic="false"`, no exported components, `android:exported="false"` wherever possible, network security config pinning the control plane, no debuggable release builds. Enforced by a CI lint gate.
 
 ---
@@ -268,6 +311,8 @@ per frame: ctr   = explicit 48-bit counter carried in the frame header
 **HR-9.8** The panel **cannot**, by protocol: start/join/observe a session · add a key to any allowlist · grant or modify a capability · read or write files, clipboard, or screen content · change host settings · wipe or reconfigure a host · recover or export any private key · read audit entries its own hardware key cannot unwrap · approve a connection or change an access mode · set or clear a backup credential · sign a release or rollback manifest.
 
 **HR-9.9** **Every admin operation reduces access. None expands it, and none is irreversible.** A new panel operation that fails this test does not ship.
+
+**HR-9.10 — Enrollment limits (transcribed from spec §5.1; previously omitted here).** Invite codes are **single-use** with a **7-day TTL** and an optional device cap. Per-user device limit defaults to **3**. Both are access-control values, not preferences: an invite with no expiry is a credential left on the floor, and an unbounded device count makes "list devices per user" useless as a review surface.
 
 ---
 
@@ -327,6 +372,8 @@ Plus IMDSv2-required (or metadata disabled) on both instances, and short-lived H
 **HR-11.5** Structured logs carry **no secrets and no payloads**.
 
 **HR-11.6** ICE: mDNS candidate obfuscation always on. Peers not explicitly marked *trusted* on the host get **TURN-only**. Default trusted: none.
+
+**HR-11.7 — Host firewall and SSH (transcribed from spec Phase 1; previously omitted here).** Control plane: **443/tcp only**. TURN host: **3478/udp+tcp and 49152–65535/udp only**. Both: SSH **key-only**, on a non-standard port, `PermitRootLogin no`, fail2ban. Deny-by-default inbound. HR-11.1 already requires TURN on a separate host; these are the rules that make "separate" mean something.
 
 ---
 
@@ -428,6 +475,9 @@ HR-10.7 logs file names while the never-logged list forbids "locally opened file
 
 **A-8 — Where the revocation epoch lives (blocks Phase 1).**
 HR-5.6 says "outside the main database" without saying where. It needs to be somewhere a `pg_dump` restore cannot roll back and a compromised control plane cannot lower.
+
+**A-10 — `canonical_json` is never defined, and the audit chain cannot work without it (blocks Phases 4 and 8). Tracked as BLK-13.**
+HR-10.2 and spec §4.7 both specify `hash = BLAKE2s(prev_hash || canonical_json(entry_without_hash))`, and neither document says what canonical JSON *is* — key ordering, number formatting, unicode escaping, whitespace, or how absent fields are treated. The host writes the chain in Rust; the panel verifies it in browser JavaScript. Two serialisations that differ in any of those respects produce different hashes, so an intact chain fails verification and HR-10.4 renders it as **`TRUNCATED — N entries missing`**: the tamper alarm firing on healthy data, which is how a real alarm gets ignored. The same undefined operation is signed in HR-10.4's checkpoint. Related and unresolved with it: the fixed entry schema has **no field** for what HR-10.7 requires — `session_end`'s duration, bytes, and reason, or `session_start`'s transport. Adding one changes the hash input, so the shape must be pinned before Phase 8 writes the first entry.
 
 **A-9 — WebAuthn RP ID after the domain split (affects Phase 4).**
 Moving the panel to a separate registrable domain (HR-9.1) binds every WebAuthn credential to that domain. Choose the panel domain **before** registering any authenticator; changing it later invalidates every passkey and forces the break-glass path.

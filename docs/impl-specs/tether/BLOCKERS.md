@@ -319,7 +319,18 @@ resolution to pin rather than an amendment to file.
 **If unanswered I will:** stop. Every gate 2 reconciliation and every Amendment Proposal depends on
 knowing which document is being reconciled against.
 
-**Resolution:** _(written by a human)_
+**Resolution — RESOLVED 2026-08-17, option C, by the author.**
+HARD-RULES wins including on contracts; any deliberate deviation must be cited at the rule itself.
+Applied: the Rule of Interpretation now states both halves, and HR-4.3 carries its citation inline.
+
+A second consequence was added while applying it, because the first pass exposed it: **an omission in
+HARD-RULES is not a decision.** A full diff against the spec found seven values the spec had fixed and
+HARD-RULES had silently dropped — which, combined with "where this document is silent, do not infer,
+stop", turned settled decisions into halts. Transcribed as HR-2.10 (session indicator), HR-2.11 (kill
+switch), HR-2.12 (idle timeout), HR-4.10 (media parameters), HR-8.6 (mobile-data disclosure),
+HR-9.10 (enrollment limits), HR-11.7 (firewall/SSH). No functionality changed and no security was
+reduced: every value came from the spec, and each addition removes a place where an implementer would
+otherwise have had to guess or stop.
 
 ---
 
@@ -406,5 +417,60 @@ verification is implemented and tested now — that part is unambiguous and inde
 but it is verified against **synthetic** trees built by an independent reference implementation in
 `tests/rekor_inclusion.rs`, not against captured Rekor proofs. Carries `TODO(BLK-12)` at the site, in
 the exact form gate 7's TODO grep accepts.
+
+**Resolution:** _(written by a human)_
+
+---
+
+## BLK-13 — `canonical_json` is undefined, so the audit chain cannot verify            [OPEN]
+**Spec phase:** 4 (panel verifies) and 8 (host writes)   **Workflow phase:** —
+**Raised:** 2026-08-17   **Gate:** 2 (Reconcile), during the HARD-RULES/spec diff
+**Where:** HR-10.2, HR-10.4 · spec §4.7 · HARD-RULES Appendix A-10
+**The question:** three things, all externally observable:
+1. What exactly is `canonical_json` — key ordering, number formatting, unicode escaping, whitespace,
+   and how absent or null fields are treated?
+2. What is the **full entry schema**? The fixed shape has no field for what HR-10.7 requires.
+3. Are the entry hash and the checkpoint signature computed over the **same** canonicalisation?
+
+**What the documents say nearest to it:** HR-10.2 and spec §4.7 both specify
+`hash = BLAKE2s(prev_hash || canonical_json(entry_without_hash))`. Neither defines the function. HR-10.4
+then signs `{device_id, max_seq, head_hash, ts}` — another JSON object, same silence.
+
+**Why this is not cosmetic.** The host writes the chain in Rust; the panel verifies it in browser
+JavaScript (HR-10.2, spec §4.7). If the two serialise differently in *any* respect, an intact chain
+fails verification, and HR-10.4 renders that as **`TRUNCATED — N entries missing`**. So the failure mode
+is the tamper alarm firing on healthy data — and an alarm that cries wolf is an alarm that gets
+ignored, which is precisely how HR-10.1's "nobody can silently truncate it" dies in practice. The
+inverse is worse: a lenient verifier that normalises away differences may accept a *forged* entry.
+
+Separately, HR-10.7 requires `session_end` to record duration, bytes, and reason, and `session_start` to
+record transport. The schema `{seq, ts, event, client_key_fp, client_ip, capabilities, prev_hash, hash}`
+has nowhere to put them. Adding a field changes the hash input, so the shape must be pinned **before**
+Phase 8 writes the first entry — a chain cannot be migrated after the fact without breaking every hash
+in it.
+
+**Options:**
+A — adopt **RFC 8785 (JCS, JSON Canonicalization Scheme)** and cite it in HR-10.2. An existing
+standard with implementations in both Rust and JavaScript, so the two ends agree by construction rather
+than by careful reading. Add an event-specific `detail` object to the schema, with a closed set of keys
+per event type.
+B — abandon JSON for hashing: hash a **length-prefixed binary encoding** of the fields in a fixed
+declared order, and keep JSON only for display. Removes canonicalisation as a category of bug entirely
+— the same reasoning that makes BLK-3's recommendation length-prefix its HMAC input, and that made the
+release verifier sign bytes-as-received rather than a re-serialised struct.
+C — define our own canonical JSON in HARD-RULES. Full control; also a new cryptographic primitive
+written by us, in the one component whose whole job is being trustworthy.
+
+**Recommendation:** **B for the hash, A for the wire.** Hash a length-prefixed binary encoding, because
+the audit chain is the one place in this design where "nobody can forge it" and "nobody can silently
+truncate it" must both hold, and canonicalisation ambiguity attacks exactly that pair. Keep RFC 8785 for
+anything genuinely JSON-shaped that must be read by a browser. Whichever is chosen, pin the complete
+entry schema in the same decision — including the `detail` fields HR-10.7 already demands.
+
+**If unanswered I will:** stop before implementing any audit entry, host-side or panel-side. Nothing in
+phase 0.1 touches this, so no existing code is affected. Note that HR-12.2's release verification
+deliberately avoided this whole class of problem by verifying signatures over bytes as received; the
+audit chain has no equivalent escape, because the hash is computed over a structure rather than received
+as one.
 
 **Resolution:** _(written by a human)_

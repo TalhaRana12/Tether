@@ -1,0 +1,73 @@
+# cargo-deny policy. CI gate: `cargo deny check` (spec Phase 0).
+# "Fail on any advisory" — spec Phase 0, verbatim.
+
+[graph]
+targets = [
+    "x86_64-pc-windows-msvc",
+    "x86_64-unknown-linux-gnu",
+]
+
+[advisories]
+# deny, not warn. A warning in CI is a line of scrollback nobody reads.
+yanked = "deny"
+unmaintained = "all"
+# No ignore list. Adding an entry here means shipping a known-vulnerable
+# dependency to family members' machines, so it requires the same ceremony as a
+# WAIVER: the advisory ID, the reason, and why the reachable path is safe.
+ignore = []
+
+[licenses]
+# Permissive only. A copyleft dependency in a distributed desktop agent creates
+# obligations this project has not planned for (spec Phase 10 ships an MSI, a
+# .deb/.rpm, and an APK).
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+]
+confidence-threshold = 0.93
+
+# Our own workspace crates carry no `license` field and are `publish = false`. This
+# policy exists to vet THIRD-PARTY code, not to audit ourselves.
+#
+# NOTE, and it is a real open item rather than a shrug: this project has no licence
+# chosen yet. That is the author's decision, not something to infer — but it has to
+# be made before Phase 10, because HR-12.5 requires "the procedure documented so a
+# third party can verify binaries against source", and inviting third parties to
+# examine source with no licence terms is an unfinished thought.
+private = { ignore = true }
+
+[bans]
+multiple-versions = "warn"
+
+# `wildcards = "deny"` is the supply-chain control: a version-unpinned REGISTRY
+# dependency resolves to whatever crates.io serves today, which defeats HR-12.5
+# reproducibility and hands an upstream account takeover a path into our binary (T16).
+#
+# Intra-workspace `path = "../x"` dependencies read as wildcards to cargo-deny but
+# carry none of that risk — they resolve to a directory in this repo, at this commit.
+# Allowing them keeps the check pointed at the threat it exists for.
+wildcards = "deny"
+allow-wildcard-paths = true
+
+# T17/T23: the privileged helpers must not acquire a network stack by
+# dependency drift. This is belt-and-braces alongside the crate split in
+# Cargo.toml — that stops a direct dependency, this stops a transitive one.
+deny = [
+    { name = "reqwest" },
+    { name = "hyper" },
+    { name = "tokio-tungstenite" },
+    { name = "openssl" },  # we use rustls / ring-family crates; see HR-4.1
+]
+
+[sources]
+# T16 — supply chain. Only crates.io. A git dependency or an alternate registry
+# is code nobody audited entering a binary that runs with a privileged sibling.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

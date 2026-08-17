@@ -1,0 +1,27 @@
+# Reproducible builds (HR-12.5): "two builds of the same commit are byte-identical,
+# and the procedure is documented so a third party can verify binaries against source."
+#
+# This file is the difference between that sentence being true and being aspirational.
+# It was added after a test proved the default configuration produces DIFFERENT bytes
+# on two consecutive builds of the same source.
+
+[target.x86_64-pc-windows-msvc]
+rustflags = [
+    # MSVC's link.exe stamps the PE header's TimeDateStamp with the wall-clock time of
+    # the link. Two builds one second apart therefore differ, and no amount of source
+    # pinning fixes it. /Brepro replaces that timestamp with a hash of the input,
+    # making it a function of the content rather than of when you pressed enter.
+    "-Clink-arg=/Brepro",
+]
+
+# WHAT THIS FILE DOES NOT FIX: absolute source paths.
+#
+# rustc bakes the source directory into panic messages and debug info, so a verifier
+# who clones to a different directory gets different bytes from an identical commit.
+# `trim-paths = "all"` is the clean fix and is NOT stabilized in Cargo 1.97.1 —
+# setting it is a hard error. Until it stabilizes, the release build must pass
+# --remap-path-prefix, which needs the build path and therefore cannot be hardcoded
+# here. See docs/REPRODUCIBLE-BUILDS.md for the exact command.
+#
+# Verified 2026-08-17: with /Brepro, two clean release builds at the same source path
+# are byte-identical. Without it they differ on every build.

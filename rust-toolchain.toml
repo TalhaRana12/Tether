@@ -1,0 +1,11 @@
+# Pinned, not floating. HR-12.5: two builds of the same commit must be
+# byte-identical, and rustc output is not stable across compiler versions.
+# A range or "stable" here silently breaks that property months later.
+#
+# Bumping this is a deliberate act: it changes the output bytes of every
+# artifact, so it belongs in its own commit with the reproducibility check re-run.
+[toolchain]
+channel = "1.97.1"
+components = ["clippy", "rustfmt"]
+targets = ["x86_64-pc-windows-msvc"]
+profile = "minimal"

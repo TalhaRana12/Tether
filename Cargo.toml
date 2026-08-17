@@ -1,0 +1,61 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/proto",
+    "crates/agent-core",
+    "crates/agent-win",
+    "crates/agent-linux",
+    "crates/broker-win",
+    "crates/helper-win",
+    "crates/helper-linux",
+]
+
+# Crate boundaries here are a security control, not organisation.
+#
+# HR-7.3 requires the input helper to be "a separate binary, under 500 lines, no
+# network code, reviewed line-by-line". A crate with no networking dependency in
+# its own Cargo.toml *cannot* make a network call — the compiler enforces what a
+# code-review checklist only asks for. Same reasoning for broker-win: HR-7.1 says
+# "no capture code, no input code, no session keys, no network code", and the way
+# to mean it is to give it no dependency that could provide any of them.
+#
+# Adding a dependency to helper-*/broker-win is therefore a security change and
+# needs the HR ID in the commit message.
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+rust-version = "1.97"
+publish = false
+
+[workspace.dependencies]
+# Protocol
+prost = "0.13"
+prost-build = "0.13"
+
+# Release verification (spec §6.1 / HR-12.2)
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
+sha2 = "0.10"
+semver = "1"
+hex = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+[profile.release]
+# Reproducibility (HR-12.5). Anything that varies per build machine has to go.
+debug = false
+strip = "symbols"
+panic = "abort"
+# codegen-units = 1 is required, not preferred: with more than one, LLVM partitions
+# work across threads and the partitioning is not guaranteed stable between runs.
+codegen-units = 1
+lto = true
+incremental = false
+
+# NOT set here: `trim-paths = "all"`. It is the natural fix for absolute source paths
+# being baked into the binary, but it is NOT stabilized in Cargo 1.97.1 — setting it
+# is a hard error, not a warning. Path independence is instead handled by
+# --remap-path-prefix, set at build time; see .cargo/config.toml and
+# docs/REPRODUCIBLE-BUILDS.md. Revisit when trim-paths stabilizes, since it is the
+# cleaner mechanism.

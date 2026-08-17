@@ -1,0 +1,17 @@
+# Force LF in the repository for every text file.
+#
+# This is a reproducibility control, not a style preference. HR-12.5 requires two
+# builds of the same commit to be byte-identical, and a third party to be able to
+# verify a binary against source. A checkout that rewrites line endings per
+# platform means the "same commit" is not the same bytes on disk, which breaks
+# source-hash verification and any signature computed over a source tree.
+* text=auto eol=lf
+
+# Binary: never touch.
+*.png binary
+*.jpg binary
+*.ico binary
+*.jar binary
+*.keystore binary
+*.apk binary
+*.sig binary

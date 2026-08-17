@@ -10,7 +10,11 @@ question stops the build — that is the mechanism behind "nothing goes without 
 
 **Resolution fields are written by a human.** An agent never fills one in.
 
-**Current state: 11 open, 0 resolved. The module is halted.**
+**Current state: 12 open, 0 resolved. The module is halted.**
+
+BLK-12 was raised during workflow phase 0.1 by the work itself — the shape it asks
+about was reached while implementing, which is the mechanism functioning rather than
+failing.
 
 BLK-1 through BLK-9 are [HARD-RULES.md](../../HARD-RULES.md) Appendix A transcribed into Blocker
 Record form — the spec author's own list of places not to guess. BLK-10 and BLK-11 were raised by
@@ -357,5 +361,50 @@ must also decide whether `python-hard-rules.md` and `react-hard-rules.md` are re
 by amendment — they reference languages this project does not use, and a binding reference to a
 non-existent file for a non-existent language is the documentation-and-code-disagree defect in the
 process documents themselves.
+
+**Resolution:** _(written by a human)_
+
+---
+
+## BLK-12 — The Rekor entry body and log trust root are unpinned            [OPEN]
+**Spec phase:** 0 (verification logic), 10 (auto-updater)   **Workflow phase:** 0.1
+**Raised:** 2026-08-17   **Gate:** 4 (Implement)
+**Where:** `crates/agent-core/src/release.rs` (`manifest_digest`, `verify_logged`) ·
+`crates/agent-core/tests/rekor_inclusion.rs` · spec §6.1 check 2, HR-12.2
+**The question:** two things, both externally observable:
+1. What exact bytes form the Rekor **leaf** whose inclusion is proven?
+2. Where does the **root hash** a proof is checked against come from, and what attests it?
+
+**What the documents say nearest to it:** spec §6.1 says "Sigstore/Rekor inclusion proof for that
+digest" and HR-12.2 repeats it. Neither pins a byte-level format. Rekor leaves are **canonicalised
+entry bodies**, not bare digests — so "for that digest" underdetermines the implementation. Separately,
+a Merkle inclusion proof only proves membership in a tree with a *given root*; it says nothing about
+whether that root is the real log's. Sigstore's answer is a **signed checkpoint** (signed tree head)
+from the log, verified against the log's public key. Nothing in the spec mentions a checkpoint or a
+pinned log key, so as written an attacker who supplies both proof and root satisfies check 2 trivially.
+
+**Options:**
+A — pin the Rekor v1 `hashedrekord` entry body as the leaf, and require a **signed checkpoint**
+verified against a Rekor public key compiled into the binary alongside the release key (HR-4.9's
+pattern, which already pins the server identity key this way). Highest assurance; the checkpoint key
+becomes another thing that must rotate through the signed release channel, like HR-4.8's admin key list.
+B — verify via `cosign verify-blob --bundle`, treating cosign as the trusted implementation and shipping
+it (or its verification library) with the agent. Less code of ours to get wrong; adds a large dependency
+to a binary that HR-12.1's threat model wants small and auditable.
+C — offline-only verification: the human signing the release checks Rekor inclusion at signing time, and
+agents verify signature + version + cohort only. Honest and much simpler, but it **deletes check 2** —
+the whole detectability property of T5/T16 — so it needs saying out loud rather than arriving by
+omission.
+
+**Recommendation:** A. It matches how every other trust root in this design is handled (HR-4.9 pins the
+server identity key; HR-4.8 pins an epoch-stamped admin key list), and it keeps the agent's verifier
+small and reviewable. Whichever is chosen, the choice must be stated in the spec, because C is a real
+reduction in the security model and must not happen silently.
+
+**If unanswered I will:** stop before Phase 10 wires an auto-updater. RFC 6962 §2.1.1 inclusion-proof
+verification is implemented and tested now — that part is unambiguous and independent of the answer —
+but it is verified against **synthetic** trees built by an independent reference implementation in
+`tests/rekor_inclusion.rs`, not against captured Rekor proofs. Carries `TODO(BLK-12)` at the site, in
+the exact form gate 7's TODO grep accepts.
 
 **Resolution:** _(written by a human)_

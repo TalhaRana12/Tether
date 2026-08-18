@@ -36,8 +36,17 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  # Fail on warnings everywhere, not just where someone remembered to ask.
-  RUSTFLAGS: "-D warnings"
+
+# DELIBERATELY NOT SET HERE: RUSTFLAGS.
+#
+# A workflow-level `RUSTFLAGS: "-D warnings"` looks harmless and silently breaks the
+# reproducible build. The RUSTFLAGS environment variable does not merge with
+# `.cargo/config.toml` rustflags - it REPLACES them - so setting it here dropped
+# `-Clink-arg=/Brepro`, and without /Brepro the MSVC linker stamps wall-clock time into
+# the PE header and two builds of one commit differ. The reproducible job then failed,
+# correctly reporting a violation that the CI config had caused.
+#
+# clippy gets `-D warnings` on its own command line below, which is where it belongs.
 
 jobs:
   rust:
@@ -50,6 +59,10 @@ jobs:
       # on purpose — two places to change it is one place to forget.
       - name: Show pinned toolchain
         run: rustc --version && cargo --version
+
+      # crates/proto/build.rs generates Rust from tether.proto and needs protoc.
+      # The runners do not ship it.
+      - uses: ./.github/actions/setup-protoc
 
       - uses: Swatinem/rust-cache@v2
 
@@ -80,6 +93,8 @@ jobs:
       # link.exe stamps wall-clock time into the PE header, which /Brepro in
       # .cargo/config.toml replaces with a hash of the input. This job is what stops that
       # fix silently regressing.
+      - uses: ./.github/actions/setup-protoc
+
       - name: Build twice and compare digests
         shell: pwsh
         run: |
@@ -100,7 +115,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          # NOT go-version-file: go.mod. That installs exactly the language minimum this
+          # project targets (1.22), and govulncheck v1.7.0 declares `go 1.25.0`, so
+          # `go install ...@latest` fails on the toolchain rather than on our code.
+          # go.mod still pins the LANGUAGE level; the toolchain used to build it may be
+          # newer, and Go's compatibility promise is what makes that safe.
+          go-version: stable
 
       - name: go vet
         run: go vet ./...

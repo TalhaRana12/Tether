@@ -50,6 +50,16 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // Portable, unlike an absolute org.gradle.java.home path. This pins the JDK used to
+    // COMPILE, independently of whichever JDK happens to be running Gradle, so the same
+    // bytecode comes out on a laptop and on a CI runner. Same reasoning as
+    // rust-toolchain.toml pinning rustc (HR-12.5).
+    java {
+        toolchain {
+            languageVersion.set(JavaLanguageVersion.of(17))
+        }
+    }
+
     kotlinOptions {
         jvmTarget = "17"
         // KT-16 forbids `!!`. Treating warnings as errors keeps the smaller lapses —

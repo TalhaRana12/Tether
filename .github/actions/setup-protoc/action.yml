@@ -1,0 +1,58 @@
+name: setup-protoc
+description: >
+  Install a pinned, checksum-verified protoc. Local composite action, deliberately not a
+  third-party marketplace action.
+
+# WHY THIS EXISTS RATHER THAN `uses: some-org/setup-protoc@v3`
+#
+# A marketplace action is code from a third party that runs in a job with access to the
+# workspace and the job token. T16 is exactly that threat, and this project already
+# refuses unaudited code elsewhere: cargo-deny pins `sources` to crates.io only, and the
+# Gradle wrapper carries a distributionSha256Sum so it verifies the distribution before
+# executing it.
+#
+# Applying the same standard here costs about twenty lines: pin the version, download from
+# the official release, and verify the SHA-256 BEFORE running anything. Trusting a
+# marketplace tag would have been shorter and would have contradicted the rest of the repo.
+#
+# Updating the version means updating the checksums in the same commit. If they do not
+# match, the job fails loudly rather than executing whatever the URL served.
+
+inputs:
+  version:
+    description: protoc release version
+    required: false
+    default: "35.1"
+
+runs:
+  using: composite
+  steps:
+    - name: Install protoc (pinned + checksum-verified)
+      shell: bash
+      env:
+        SHA_WIN64: 5d3ff218d7d91eea95f7569bcb5a98f3030f8996d44151279d9772edcff76082
+        SHA_LINUX_X86_64: 6930ebf62bd4ea607b98fff052596c6ee564b9835b4ce172c75a3f53ae9d91b7
+      run: |
+        set -euo pipefail
+        V="${{ inputs.version }}"
+
+        case "$RUNNER_OS" in
+          Windows) FILE="protoc-$V-win64.zip";        WANT="$SHA_WIN64" ;;
+          Linux)   FILE="protoc-$V-linux-x86_64.zip"; WANT="$SHA_LINUX_X86_64" ;;
+          *) echo "unsupported runner: $RUNNER_OS" >&2; exit 1 ;;
+        esac
+
+        URL="https://github.com/protocolbuffers/protobuf/releases/download/v$V/$FILE"
+        echo "downloading $URL"
+        curl -sSfL -o "$FILE" "$URL"
+
+        # Checksum is verified BEFORE extraction or execution. See install.py.
+        DEST="$RUNNER_TEMP/protoc"
+        python "$GITHUB_ACTION_PATH/install.py" "$FILE" "$WANT" "$DEST"
+
+        echo "$DEST/bin" >> "$GITHUB_PATH"
+        rm -f "$FILE"
+
+    - name: Verify protoc runs
+      shell: bash
+      run: protoc --version

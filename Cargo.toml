@@ -1,5 +1,8 @@
 [workspace]
 resolver = "2"
+# Operator tooling lives outside the shipped workspace on purpose - see
+# tools/sign-release/Cargo.toml. Signing code must never link into an agent binary.
+exclude = ["tools/sign-release"]
 members = [
     "crates/proto",
     "crates/agent-core",

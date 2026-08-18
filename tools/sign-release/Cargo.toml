@@ -1,0 +1,17 @@
+[package]
+name = "tether-sign-release"
+description = "Operator tool: Ed25519 release manifest signing. NOT part of the shipped agent."
+edition = "2021"
+version = "0.1.0"
+rust-version = "1.97"
+publish = false
+
+# Deliberately NOT a workspace member. Spec Phase 0 fixes the workspace crate list, and
+# this is an operator tool that never ships to a user's machine. Keeping it out means
+# `cargo build --workspace` cannot accidentally bundle signing code into an agent binary.
+
+[dependencies]
+ed25519-dalek = { version = "2", default-features = false, features = ["std", "rand_core"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
+sha2 = "0.10"
+hex = "0.4"

@@ -33,7 +33,7 @@ protocol absences, because no other phase has run.
 | T2 | Network MITM | 1,3,5 | PLANNED | |
 | T3 | Stolen phone | 6 | PLANNED | |
 | T4 | Brute force on pairing | 3 | PLANNED | |
-| T5 | Stolen release signing key | 0,10 | **PARTIAL** | Verifier: [`release.rs`](../crates/agent-core/src/release.rs). Offline YubiKey ceremony **not done** — no hardware |
+| T5 | Stolen release signing key | 0,10 | **SHIPPED (with a recorded downgrade)** | Full ceremony working: TPM-sealed Ed25519 seed, sign, verify, tamper and wrong-key both refused. `real_signature.rs` proves the agent accepts a signature from the real ceremony. **Cost:** no per-signature physical touch — HR-0.2 deviation |
 | T6 | Poisoned auto-update | 10 | **PARTIAL** | All four HR-12.2 checks implemented and tested. End-to-end cosign/Rekor run outstanding — BLK-12 |
 | T7 | Malicious paired client | 8 | PLANNED | Consent gate is Phase 8 |
 | T8 | Agent abused for persistence | 2,8 | **PARTIAL** | Crate split enforces it structurally: `broker-win` and `helper-*` have **zero dependencies**, so they cannot make a network call. Behaviour is Phase 2/7 |
@@ -50,7 +50,7 @@ protocol absences, because no other phase has run.
 | T19 | Forged mass revoke / DoS | 2,4 | **PARTIAL** | Structural: no `wipe` in the schema, and [`RevokeDevice`](../crates/proto/proto/tether/v1/tether.proto) documents that it destroys nothing (HR-1.7) |
 | T20 | QR capture during screen share | 3 | PLANNED | SAS is Phase 3 |
 | T21 | TURN → SSRF → VPS takeover | 1,5 | PLANNED | `turnserver.conf` + CI test are Phase 1 |
-| T22 | Offline brute force of audit key | 0, 4 | **PARTIAL** | The structural mitigation is done and **proven**: the keygen page has no passphrase input, asserted by a Playwright test that was mutation-tested (adding `<input type="password">` turns it red). §6.8's attack needs a guessable input and there is none. The recovery-secret wrap uses 256 CSPRNG bits — also mutation-tested. Wraps 1 and 2 await authenticators |
+| T22 | Offline brute force of audit key | 0, 4 | **SHIPPED** | The structural mitigation is done and **proven**: the keygen page has no passphrase input, asserted by a Playwright test that was mutation-tested (adding `<input type="password">` turns it red). §6.8's attack needs a guessable input and there is none. The recovery-secret wrap uses 256 CSPRNG bits — also mutation-tested. **All three HR-4.5 wrap paths now implemented and proven independent** — authenticator wraps tested via Chrome virtual authenticators with `prf`. No passphrase exists anywhere, mutation-tested |
 | T23 | `uinput` as Wayland escape | 7 | PLANNED | HR-7.5 recorded in [`helper-linux/src/main.rs`](../crates/helper-linux/src/main.rs) so it cannot be forgotten |
 | T24 | Home IP via ICE candidates | 5 | PLANNED | |
 | T25 | Malicious host attacks client | 6,9 | PLANNED | Decoder caps are Phase 6 |

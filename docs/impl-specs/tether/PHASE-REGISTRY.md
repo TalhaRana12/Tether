@@ -34,7 +34,7 @@ is a test that runs, not a judgement.
 
 | Spec phase | Title | Effort | Workflow phases | Status | Exit criterion met |
 |---|---|---|---|---|---|
-| 0 | Foundations | 2 wk | **0.1 done**; 0.2 blocked | **IN PROGRESS** | **NO** — 3 of 6 criteria unmet |
+| 0 | Foundations | 2 wk | 0.1, 0.2, 0.3 done | **NEARLY COMPLETE** | **4 of 6** — rest needs a push, a browser session, and Phase 1 |
 | 1 | Control plane | 3 wk | not decomposed | NOT STARTED | — |
 | 2 | Host agent skeleton | 3–3.5 wk | not decomposed | NOT STARTED | — |
 | 3 | Pairing, Noise, and the SAS | 3 wk | not decomposed | NOT STARTED | — |
@@ -65,9 +65,10 @@ decomposed into these before work starts; the decomposition is recorded here as 
 | # | Spec phase | Delivered | Proof (gate file) | Commits | BLK raised | AMD applied | Date |
 |---|---|---|---|---|---|---|---|
 | 0.1 | 0 | Workspace (8 crates) · wire protocol v1 with HR-1.1 absences enforced · HR-1.6 version floor · HR-12.2/12.3 release + rollback verification · reproducibility fix · THREAT-MODEL, SECURITY-REVIEW | [phase-0.1.md](gates/phase-0.1.md) — 43 tests | see `git log phase-0-foundations` | **BLK-12**, **BLK-13** | none | 2026-08-17 |
+| 0.3 | 0 | TPM-backed signing ceremony · WebAuthn prf wraps (all 3 paths) · Go module · Gradle project + `gradle lint` clean · CI workflow · Android manifest gate | [phase-0.3.md](gates/phase-0.3.md) — 67 tests, 3 mutations | see `git log` | none | none | 2026-08-18 |
 | 0.2 | 0 | In-browser audit keypair · HR-4.5 recovery-secret wrap (1 of 3) · 256-word recovery scheme · Playwright suite + CSP-enforcing test server | [phase-0.2.md](gates/phase-0.2.md) — 10 tests, 4 mutations | see `git log phase-0-foundations` | none | none | 2026-08-17 |
 
-**Totals: 53 tests (43 Rust + 10 Playwright). 6 mutation tests run, all caught.**
+**Totals: 67 tests — 46 Rust, 7 Go, 14 Playwright. 7 mutation tests run; 6 confirmed a guard and ONE exposed a guard with no teeth (phase 0.3, gate 3).**
 
 **Phase 0.3 — blocked on purchases, not decisions.** The remainder of spec phase 0:
 

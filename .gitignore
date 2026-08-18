@@ -31,6 +31,12 @@ local.properties
 # Public halves ARE committed on purpose — they are pinned into agent builds.
 /dist/
 *.sig
+# ...but NOT test fixtures. `*.sig` is aimed at real release signatures in /dist/.
+# It also swallowed crates/agent-core/tests/fixtures/*.sig, so a fresh clone could not
+# compile the test suite at all - include_str! pointed at a file that was never committed.
+# Found by listing tracked files rather than by any test, because the file was present
+# locally. CI would have caught it on the first push; CI has never run.
+!crates/**/tests/fixtures/*.sig
 !keys/**/*.pub
 !keys/**/*.pem.pub
 

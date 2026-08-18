@@ -1,0 +1,179 @@
+# CI for tether. Spec Phase 0.
+#
+# ============================================================================
+#  THE MOST IMPORTANT PROPERTY OF THIS FILE IS WHAT IT DOES NOT HAVE
+# ============================================================================
+#
+# HR-12.1 / spec §6.1: **CI holds no signing credential of any kind.** There is no
+# `secrets.SIGNING_KEY`, no cloud-KMS role, no OIDC trust relationship that can sign a
+# release. CI builds and produces artifacts plus a digest manifest; a human signs the
+# manifest on an air-gapped-ish workstation with a YubiKey whose touch policy is `always`.
+#
+# That is the control separating this project from the AnyDesk incident (spec §0 rule 2).
+# T16 is the threat: steal a GitHub Actions token, trigger a release, and every agent
+# auto-updates to a backdoored build with a valid signature. A workflow that cannot sign
+# makes a stolen token worth a build log.
+#
+# If you are ever about to add a signing secret here, that is HARD-RULES Appendix B
+# question 2, and the answer is stop.
+#
+# `permissions` is minimised at the top level rather than per-job, so a new job inherits
+# least privilege instead of the default token.
+
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # Fail on warnings everywhere, not just where someone remembered to ask.
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  rust:
+    name: rust (fmt, clippy, deny, test)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # rust-toolchain.toml pins the exact compiler (HR-12.5). No version is named here
+      # on purpose — two places to change it is one place to forget.
+      - name: Show pinned toolchain
+        run: rustc --version && cargo --version
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          # advisories, licenses, bans, sources. `sources` is the T16 one: crates.io
+          # only, unknown-git denied.
+
+      - name: cargo test
+        run: cargo test --workspace
+
+  reproducible:
+    name: reproducible build (HR-12.5)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # HR-12.5: "two builds of the same commit are byte-identical." Verified here rather
+      # than trusted, because the default configuration is NOT reproducible — MSVC's
+      # link.exe stamps wall-clock time into the PE header, which /Brepro in
+      # .cargo/config.toml replaces with a hash of the input. This job is what stops that
+      # fix silently regressing.
+      - name: Build twice and compare digests
+        shell: pwsh
+        run: |
+          $exe = "target/release/tether-agent-win.exe"
+          cargo build --release -p tether-agent-win
+          $a = (Get-FileHash $exe -Algorithm SHA256).Hash
+          cargo clean -p tether-agent-win --release
+          cargo build --release -p tether-agent-win
+          $b = (Get-FileHash $exe -Algorithm SHA256).Hash
+          Write-Host "build 1: $a"
+          Write-Host "build 2: $b"
+          if ($a -ne $b) { throw "HR-12.5 violated: builds are not byte-identical" }
+
+  go:
+    name: go (vet, test, govulncheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: go vet
+        run: go vet ./...
+
+      # Includes internal/cigates — the Android manifest hardening gate (HR-8.5).
+      # It runs here, with no Android SDK, on purpose: a gate that needs a full toolchain
+      # is a gate that silently stops running (implementation-workflow.md §6).
+      - name: go test
+        run: go test ./...
+
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+  panel:
+    name: panel browser tests (Playwright)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: panel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci || npm install
+      - run: npm audit --audit-level=low
+      - run: npx playwright install --with-deps chromium
+
+      # Covers the properties a unit test cannot see: no passphrase input anywhere
+      # (HR-4.6), the private key never reaching web storage (HR-4.7), and zero external
+      # requests (HR-9.7, no CDN). All four are mutation-tested — see
+      # docs/impl-specs/tether/gates/phase-0.2.md.
+      - run: npx playwright test
+
+  android:
+    name: android (lint, manifest gate)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          # 21, not the newest: the Android Gradle Plugin does not support Java 26, and
+          # it fails with a toolchain error that sends you hunting through Gradle config
+          # rather than at your JDK version.
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Spec Phase 0: "gradle lint" and the "Android manifest lint gate", failing on any
+      # advisory. `warningsAsErrors` is set in app/build.gradle.kts.
+      - name: gradle lint
+        run: ./gradlew --no-daemon :app:lintRelease
+
+  secrets-scan:
+    name: no secrets in source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # WORKING-AGREEMENT §4: never hardcode a secret, not temporarily, not in a test.
+      # HR-0.3 means every real long-term secret lives in hardware or is 256 CSPRNG bits,
+      # so anything key-shaped in source is either a mistake or a test fixture that
+      # should say so.
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

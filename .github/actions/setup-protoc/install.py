@@ -33,15 +33,27 @@ def main() -> int:
     with zipfile.ZipFile(archive) as z:
         z.extractall(dest)
 
-    # Zip archives carry no POSIX permission bits, so an extracted protoc is not
-    # executable on Linux. Silent on Windows, fatal on Ubuntu.
-    binary = os.path.join(dest, "bin", "protoc")
-    if os.path.exists(binary):
-        os.chmod(binary, 0o755)
-        print(f"extracted: {binary}")
-    else:
-        print(f"::error::protoc binary not found at {binary} after extraction")
+    # THE BINARY IS NAMED DIFFERENTLY PER PLATFORM: `bin/protoc` in the Linux archive,
+    # `bin/protoc.exe` in the Windows one. The first version of this script checked only
+    # for `bin/protoc`, so on windows-latest it verified the checksum, extracted
+    # correctly, then FAILED ITS OWN SANITY CHECK and returned 1 - turning a successful
+    # install into a red job. A check that encodes a platform assumption is worse than
+    # no check, because it fails work that actually succeeded.
+    candidates = [
+        os.path.join(dest, "bin", "protoc"),
+        os.path.join(dest, "bin", "protoc.exe"),
+    ]
+    binary = next((c for c in candidates if os.path.exists(c)), None)
+    if binary is None:
+        print(f"::error::no protoc binary found after extraction; looked for {candidates}")
         return 1
+
+    # Zip archives carry no POSIX permission bits, so the extracted binary is not
+    # executable on Linux. A no-op on Windows, fatal on Ubuntu without it.
+    if not binary.endswith(".exe"):
+        os.chmod(binary, 0o755)
+
+    print(f"extracted: {binary}")
     return 0
 
 

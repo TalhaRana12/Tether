@@ -50,13 +50,21 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    // Portable, unlike an absolute org.gradle.java.home path. This pins the JDK used to
-    // COMPILE, independently of whichever JDK happens to be running Gradle, so the same
-    // bytecode comes out on a laptop and on a CI runner. Same reasoning as
-    // rust-toolchain.toml pinning rustc (HR-12.5).
+    // Pins the JDK used to COMPILE, so the same bytecode comes out on a laptop and on a
+    // CI runner. Same reasoning as rust-toolchain.toml pinning rustc (HR-12.5).
+    //
+    // 21, NOT 17, and the difference matters. The first version asked for 17 and passed
+    // locally only because this machine happens to have both a 17 and a 21 installed.
+    // CI provisions 21 alone, so Gradle could not resolve a 17 toolchain and the job
+    // failed - the SAME class of bug as the absolute org.gradle.java.home path it had
+    // just replaced: a build that depends on what one machine happens to have.
+    //
+    // 21 is what actions/setup-java installs and what JAVA_HOME points at locally, so
+    // there is exactly one JDK requirement. compileOptions above still targets Java 17
+    // BYTECODE, which is the thing that actually has to stay stable for Android.
     java {
         toolchain {
-            languageVersion.set(JavaLanguageVersion.of(17))
+            languageVersion.set(JavaLanguageVersion.of(21))
         }
     }
 

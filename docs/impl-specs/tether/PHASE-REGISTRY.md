@@ -7,15 +7,22 @@ phase completes ([implementation-workflow.md §7](../../implementation-workflow.
 in one place, that the phases ran in order, what was decided along the way, and what is still open —
 without reconstructing it from a commit log.
 
-**Current state: workflow phase 0.1 complete on branch `phase-0-foundations`, and all eight gates pass
-on a clean re-run** — no override, no waiver, no open blocker. See the gate re-run section at the end of
-[gates/phase-0.1.md](gates/phase-0.1.md).
+**Current state — 2026-08-18: workflow phases 0.1, 0.2 and 0.3 complete on
+`phase-0-foundations`. All eight gates pass with no override, no waiver, and no open blocker.**
 
-**Spec phase 0 is still NOT complete.** Three exit criteria are unmet and none is an engineering
-decision: the YubiKey signing ceremony (~$75 of hardware), the three-way audit-key wrap (2× WebAuthn
-authenticators plus the panel domain), and byte-identical builds from a *different* source path
-(`--remap-path-prefix` procedure documented but not exercised). HR-15.1 is **not** cleared for spec
-phase 1.
+**Spec phase 0 is NEARLY complete: 4 of 6 exit criteria met.** What remains is not an engineering
+decision and costs nothing:
+
+| Outstanding | Needs |
+|---|---|
+| CI has never executed | a `git push` to GitHub — the workflow is written and validated |
+| Real audit keypair + its key-list entry | ~2 minutes in a browser registering two authenticators |
+| Sigstore/Rekor end-to-end on a dummy artifact | a `cosign` round-trip against the public log |
+| SPKI + server identity pin | Phase 1's deployed control plane |
+
+HR-15.1 is therefore **not** cleared for spec phase 1, but nothing blocking is technical. One
+constraint binds before the second row: **the panel domain must be chosen first** — registering a
+WebAuthn credential freezes the RP ID, and changing it later kills both hardware wraps.
 
 [BLOCKERS.md](BLOCKERS.md): **13 raised, 13 resolved, 0 open.** Twelve resolved by author decision on
 2026-08-17; BLK-9 descoped with its constraint retained as a hard precondition on Phase 0.2 and Phase 4.
@@ -65,21 +72,17 @@ decomposed into these before work starts; the decomposition is recorded here as 
 | # | Spec phase | Delivered | Proof (gate file) | Commits | BLK raised | AMD applied | Date |
 |---|---|---|---|---|---|---|---|
 | 0.1 | 0 | Workspace (8 crates) · wire protocol v1 with HR-1.1 absences enforced · HR-1.6 version floor · HR-12.2/12.3 release + rollback verification · reproducibility fix · THREAT-MODEL, SECURITY-REVIEW | [phase-0.1.md](gates/phase-0.1.md) — 43 tests | see `git log phase-0-foundations` | **BLK-12**, **BLK-13** | none | 2026-08-17 |
-| 0.3 | 0 | TPM-backed signing ceremony · WebAuthn prf wraps (all 3 paths) · Go module · Gradle project + `gradle lint` clean · CI workflow · Android manifest gate | [phase-0.3.md](gates/phase-0.3.md) — 67 tests, 3 mutations | see `git log` | none | none | 2026-08-18 |
 | 0.2 | 0 | In-browser audit keypair · HR-4.5 recovery-secret wrap (1 of 3) · 256-word recovery scheme · Playwright suite + CSP-enforcing test server | [phase-0.2.md](gates/phase-0.2.md) — 10 tests, 4 mutations | see `git log phase-0-foundations` | none | none | 2026-08-17 |
+| 0.3 | 0 | TPM-backed signing ceremony · WebAuthn prf wraps (all 3 paths) · Go module · Gradle project + `gradle lint` clean · CI workflow · Android manifest gate | [phase-0.3.md](gates/phase-0.3.md) — 67 tests, 3 mutations | see `git log` | none | none | 2026-08-18 |
 
 **Totals: 67 tests — 46 Rust, 7 Go, 14 Playwright. 7 mutation tests run; 6 confirmed a guard and ONE exposed a guard with no teeth (phase 0.3, gate 3).**
 
-**Phase 0.3 — blocked on purchases, not decisions.** The remainder of spec phase 0:
-
-| Item | Blocked on |
-|---|---|
-| YubiKey signing ceremony, Sigstore end-to-end on a dummy artifact | YubiKey with touch policy `always`, ~$50 |
-| Audit-key wraps 2 and 3 (authenticator A and B) | 2× WebAuthn authenticators, ~$50, **and** the panel domain first — BLK-9's retained precondition freezes the RP ID at first registration |
-| Public half committed to the epoch-stamped admin key list | follows from the above |
-| Control-plane SPKI + server identity pin | a deployed control plane (spec Phase 1) |
-| Go module (`control`, `admin`) and Gradle project (`android`) | not attempted; Phase 1 and Phase 6 territory |
-| CI workflow file, `gradle lint`, Android manifest lint gate | a remote and the Gradle project |
+**Zero-budget substitutions applied.** No hardware was bought. Windows Hello and an Android phone
+replace two security keys with no material loss; a PSL-listed free subdomain replaces the panel domain;
+GitHub Actions replaces a paid runner. The release key is TPM-sealed rather than on a YubiKey, which
+costs the per-signature physical touch — recorded at HR-0.2 and in HR-14.4, and the reason builds must
+not be distributed to anyone else yet. Full accounting:
+[FREE-TIER-SUBSTITUTIONS.md](../../FREE-TIER-SUBSTITUTIONS.md).
 
 **Proof** links the phase's `gates/phase-<n>.md`, whose gate 5 and gate 7 blocks must be present and
 passing before `impl-phase-commit` will commit — see [gates/_TEMPLATE.md](gates/_TEMPLATE.md).

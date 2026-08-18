@@ -20,8 +20,9 @@ Read §2 for *what the threat is*. Read this for *whether anything stops it toda
 | `BLOCKED` | Cannot proceed; blocker ID given |
 | `ACCEPTED` | Documented risk, deliberately not mitigated (spec §2) |
 
-**As of 2026-08-17, workflow phase 0.1.** Nothing is `SHIPPED` beyond release verification and the
-protocol absences, because no other phase has run.
+**As of 2026-08-18, after workflow phases 0.1–0.3.** Four threats are `SHIPPED`. Most of the rest are
+`PLANNED` simply because their phase has not run — this is a foundations phase, and most mitigations
+live in the phases that build the features they protect.
 
 ---
 
@@ -75,14 +76,21 @@ is a second key to the house · the host user can decline consent and defeat the
 
 ## The honest summary
 
-Two threats are `SHIPPED`, both about update integrity. Several show `PARTIAL` where the *structural*
-half is genuinely done — a message that does not exist in the schema cannot be sent, and a crate with
-no dependencies cannot open a socket — which is stronger than a runtime check but is not the whole
-mitigation.
+**Four are `SHIPPED`** — T5 and T34 (release integrity), T31 (protocol downgrade), and T22 (offline
+brute force of the audit key, where the mitigation is that there is no passphrase to attack).
 
-Five are `BLOCKED` on BLK-9 alone (T14, T22, T27, T28 and, indirectly, the audit chain). That is one
-domain purchase gating five threats.
+Several show `PARTIAL` where the **structural** half is genuinely done: a message that does not exist
+in the schema cannot be sent, and a crate with no dependencies cannot open a socket. That is stronger
+than a runtime check, but it is not the whole mitigation.
 
-**T32 deserves the loudest note.** Its mitigation is the consent gate, which lands in Phase 8.
-Phases 5–7 produce a working system where any paired device can connect at will. HR-15.2: do not hand
-this to a second person before Phase 8 ships — including someone who insists they do not mind.
+**Three remain `BLOCKED` on the panel domain** (T14, T27, T28). It is free — a subdomain of a
+Public-Suffix-List domain satisfies HR-9.1 — but it must be chosen before any authenticator is
+registered, because that freezes the WebAuthn RP ID.
+
+**T32 deserves the loudest note.** Its mitigation is the consent gate, which lands in Phase 8. Phases
+5–7 produce a working system where any paired device can connect at will. HR-15.2: do not hand this to
+a second person before Phase 8 ships — including someone who insists they do not mind.
+
+**And T5 carries a recorded downgrade.** The release key is TPM-sealed, not on a YubiKey, so there is
+no per-signature physical touch. CI still cannot sign and the key still cannot leave the machine — but
+until the Phase 6 StrongBox path restores the missing property, builds must not be distributed.

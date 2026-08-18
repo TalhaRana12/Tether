@@ -23,6 +23,22 @@ These are the rules from which most of the others are derived. If a proposed cha
 | **HR-0.3** | **No secret is ever derivable from something guessable.** No passphrase-derived keys, anywhere. Every long-term secret lives in hardware (TPM, StrongBox, or a security key) or is 256 bits of CSPRNG output. |
 | **HR-0.4** | **Pairing is not permission to connect.** A paired device may *request* a session. The host user decides, per connection, at the moment of connection. Unattended access is a deliberate opt-in the host user makes for a named device — never a side effect of having paired once. |
 
+> **ZERO-BUDGET DEVIATION on HR-0.2, cited per the BLK-10 resolution. 2026-08-17.**
+> No YubiKey is being bought. The release key instead lives in this machine's **TPM 2.0**
+> as a non-exportable CNG key. Accounting, because "equivalent" would be false:
+>
+> | Property HR-0.2 buys | TPM substitute |
+> |---|---|
+> | CI cannot sign | **kept in full** — this is the AnyDesk control (spec §6.1) and it is free |
+> | the key cannot be copied off the machine | **kept** — the TPM refuses to export it |
+> | every signature needs a physical touch | **LOST.** A process running as you can sign. A TPM PIN adds a human step, but a PIN can be keylogged and replayed; a touch cannot |
+>
+> Consequence, and it binds: **do not distribute builds to anyone else** until the Phase 6
+> Android client can hold the key in StrongBox behind a biometric, which restores the third
+> property for free. HR-15.2 already forbids handing this to a second person before Phase 8;
+> this is an independent second reason for the same line.
+> Full analysis: [FREE-TIER-SUBSTITUTIONS.md](FREE-TIER-SUBSTITUTIONS.md) §4.
+
 **HR-0.5 — The trust boundary runs in both directions.** Every byte crossing a session, in either direction, is untrusted input to whoever receives it. A compromised host attacking the phone is as much a threat as the reverse.
 
 **HR-0.6 — The difference between this and a RAT is verifiable consent plus an audit trail the session cannot erase.** Any change that weakens either erases the difference.
@@ -294,6 +310,15 @@ per frame: ctr   = explicit 48-bit counter carried in the frame header
 
 **HR-9.2** **WebAuthn/passkey mandatory.** No password, TOTP, or magic-link fallback, in any environment. At least two authenticators registered. Break-glass is a **256-bit random recovery secret rendered as mnemonic words**, printed, stored physically — never a passphrase. Its use is audited and emails you.
 
+> **Zero-budget note, 2026-08-17: this is NOT a deviation.** No security keys are being
+> bought, and none are needed. **Windows Hello** (backed by this machine's TPM 2.0) and an
+> **Android phone** passkey are both genuine, hardware-backed WebAuthn authenticators, and
+> HR-9.2's own wording already contemplates a phone. Two caveats to hold: Windows Hello is
+> bound to this laptop, so losing it loses that authenticator — which is exactly why HR-4.5
+> keeps a **third**, paper wrap; and Android passkeys sync by default, so prefer a
+> device-bound credential where the platform offers the choice. The prohibition on a
+> password, TOTP, or magic-link fallback is **unchanged and absolute**.
+
 **HR-9.3** Session cookie: `__Host-` prefixed, `HttpOnly`, `Secure`, `SameSite=Strict`, **30-minute TTL**, bound to a server-side record, invalidated on IP or User-Agent change.
 
 **HR-9.4** **Per-session, per-request CSRF tokens** on every state-changing request, delivered via `hx-headers`, verified in middleware, plus server-side `Origin` checking with mismatches rejected **and logged**.
@@ -458,6 +483,8 @@ Plus IMDSv2-required (or metadata disabled) on both instances, and short-lived H
 **HR-14.3** There is **no Ctrl+Alt+Del button** in the client UI. It cannot work. When the host is at a greeter or lock screen the client shows *"waiting for local sign-in"* and reconnects automatically once a session exists. The host sends an explanatory overlay, never a black or frozen frame.
 
 **HR-14.4** Accepted risks are **documented in the onboarding doc, not hidden**: a fully compromised host OS defeats everything · a compromised Android client with an Accessibility Service can observe the decoded desktop and inject taps · traffic metadata is a behavioural profile over weeks · an admin can always refuse to relay · no lock screen / greeter / UAC access · the backup credential is a second key to the house · the host user can decline consent and defeat their own remote access.
+
+**Added 2026-08-17 (zero-budget build):** · **the release signing key lives in a TPM on an online machine rather than on offline hardware with a touch policy**, so malware present while you are signing can sign things you did not intend. CI still cannot sign, and the key still cannot be exfiltrated — it is the per-signature physical act that is missing. This is why builds must not be distributed to anyone else until the Phase 6 StrongBox path restores it. See [FREE-TIER-SUBSTITUTIONS.md](FREE-TIER-SUBSTITUTIONS.md).
 
 ---
 

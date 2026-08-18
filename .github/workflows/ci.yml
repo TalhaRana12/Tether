@@ -72,12 +72,26 @@ jobs:
       - name: cargo clippy -D warnings
         run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: cargo-deny
-        uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          command: check
-          # advisories, licenses, bans, sources. `sources` is the T16 one: crates.io
-          # only, unknown-git denied.
+      # cargo-deny is run DIRECTLY, at a pinned version, rather than through
+      # EmbarkStudios/cargo-deny-action@v2. Two reasons:
+      #
+      #   1. Consistency. This workflow already refuses a marketplace action for protoc
+      #      on T16 grounds - unaudited third-party code running with the workspace and
+      #      the job token. Using one here contradicted that.
+      #   2. Determinism. The action bundles its own cargo-deny version, which need not
+      #      match the 0.20.2 verified locally against this deny.toml. A config that
+      #      passes on a laptop and fails in CI because the TOOL differs is the same
+      #      class of problem as the absolute JDK path.
+      #
+      # Pinned, not `--locked` latest: a new cargo-deny release must be an explicit
+      # commit, not something that changes the gate overnight.
+      - name: install cargo-deny (pinned)
+        run: cargo install cargo-deny --version 0.20.2 --locked
+
+      # advisories, licenses, bans, sources. `sources` is the T16 one: crates.io only,
+      # unknown-git denied.
+      - name: cargo deny check
+        run: cargo deny check
 
       - name: cargo test
         run: cargo test --workspace
@@ -178,8 +192,22 @@ jobs:
 
       # Spec Phase 0: "gradle lint" and the "Android manifest lint gate", failing on any
       # advisory. `warningsAsErrors` is set in app/build.gradle.kts.
+      # `--stacktrace` and the lint report upload are here so the NEXT failure is
+      # diagnosable from the artifact rather than from inference. Two rounds of this job
+      # failing were debugged by reasoning about what the runner probably has; that is
+      # slower and less reliable than reading the actual error.
       - name: gradle lint
-        run: ./gradlew --no-daemon :app:lintRelease
+        run: ./gradlew --no-daemon --stacktrace :app:lintRelease
+
+      - name: upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-lint-report
+          path: |
+            android/app/build/reports/lint-results-*.xml
+            android/app/build/reports/lint-results-*.html
+          if-no-files-found: warn
 
   secrets-scan:
     name: no secrets in source

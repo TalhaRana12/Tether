@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Platform theme parent, deliberately. AppCompat would pull in a dependency tree
+  this app does not need yet, and T16's reasoning applies to Maven exactly as it
+  does to crates.io: an unused dependency is still a dependency.
+-->
+<resources>
+    <style name="Theme.Tether" parent="@android:style/Theme.Material.NoActionBar" />
+</resources>

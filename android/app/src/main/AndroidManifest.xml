@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  HR-8.5 / spec §6.32. Every attribute here is load-bearing, and the gate that enforces
+  them is internal/cigates/android_manifest_test.go — a plain Go test rather than only
+  `gradle lint`, because a gate needing a full Android SDK is a gate that silently stops
+  running (implementation-workflow.md §6).
+
+  Note what is ABSENT and must stay absent: RECORD_AUDIO, CAMERA, any LOCATION,
+  QUERY_ALL_PACKAGES, PACKAGE_USAGE_STATS, BIND_ACCESSIBILITY_SERVICE. HR-10.7's
+  never-logged list has "no code path", and a permission is the beginning of one.
+  HR-10.8: adding one is the moment this stops being a remote-access tool and becomes
+  monitoring software.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- The only permissions this client needs: reach the relay, and stay alive
+         during a session. INTERNET is unavoidable; the rest are session plumbing. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- HR-4.4: the identity key requires user authentication to use. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+
+    <application
+        android:name=".TetherApplication"
+        android:label="tether"
+        android:icon="@drawable/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Tether">
+
+        <!-- android:exported is stated explicitly on every component. The platform
+             default changed across API levels, so silence is not safety - it is a value
+             that depends on which SDK happened to build the APK. -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:launchMode="singleTask" />
+
+        <!-- KT-8: FLAG_SECURE is applied in code on this activity. It raises the bar
+             against screenshots and is NOT a defence against an Accessibility Service -
+             §6.10 documents that as an accepted risk, and it must not be described
+             anywhere as though it were protection. -->
+        <activity
+            android:name=".SessionActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
+        <service
+            android:name=".SessionService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+    </application>
+</manifest>

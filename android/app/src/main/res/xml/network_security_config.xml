@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  HR-8.5 requires "network security config pinning the control plane", and HR-4.9 is the
+  reason: agents pin the control plane's SPKI with a backup pin for the next rotation.
+  TLS is a transport convenience here, not a trust anchor - a mis-issued certificate or a
+  DNS hijack must not be enough to reach a device (T28).
+
+  THE PINS BELOW ARE PLACEHOLDERS AND THE APP MUST NOT SHIP WITH THEM.
+
+  They cannot be filled in yet: BLK-9 is descoped but its constraint is retained, so no
+  panel or control-plane domain exists to pin. Filling this in is a Phase 1 / Phase 0.3
+  task, and it needs BOTH pins - HR-4.9 requires a backup pin, because a single pin plus a
+  lost key equals a fleet of agents that can never reach the control plane again.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- domain-config is intentionally commented out rather than filled with a fake
+         domain: a pin set against a placeholder host would pass a lint and fail in
+         production, which is worse than an obviously-absent pin.
+
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="false">REPLACE_WITH_CONTROL_PLANE_HOST</domain>
+        <pin-set expiration="REPLACE_WITH_DATE">
+            <pin digest="SHA-256">REPLACE_WITH_PRIMARY_SPKI_PIN</pin>
+            <pin digest="SHA-256">REPLACE_WITH_BACKUP_SPKI_PIN</pin>
+        </pin-set>
+    </domain-config>
+    -->
+</network-security-config>

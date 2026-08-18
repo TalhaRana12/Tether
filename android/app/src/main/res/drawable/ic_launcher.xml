@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder mark. Phase 10 replaces it before distribution. Vector rather than a
+     PNG so the repo carries no binary asset a reviewer cannot read. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#1F2937" android:pathData="M0,0h48v48h-48z" />
+    <path android:fillColor="#F9FAFB"
+        android:pathData="M14,16h20v4h-8v14h-4v-14h-8z" />
+</vector>

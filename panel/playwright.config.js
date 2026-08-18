@@ -13,7 +13,7 @@ module.exports = defineConfig({
   reporter: [['list']],
 
   use: {
-    baseURL: `http://127.0.0.1:${process.env.PORT || 4173}`,
+    baseURL: `http://localhost:${process.env.PORT || 4173}`,
     trace: 'retain-on-failure',
   },
 
@@ -21,7 +21,7 @@ module.exports = defineConfig({
 
   webServer: {
     command: 'node server.js',
-    url: `http://127.0.0.1:${process.env.PORT || 4173}/audit-keygen.html`,
+    url: `http://localhost:${process.env.PORT || 4173}/audit-keygen.html`,
     reuseExistingServer: false,
     timeout: 30_000,
   },

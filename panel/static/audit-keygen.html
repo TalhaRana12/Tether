@@ -45,7 +45,22 @@
       </section>
 
       <section>
-        <h2>2. Verify the recovery path</h2>
+        <h2>2. Wrap under your authenticators</h2>
+        <p>
+          HR-4.5 wraps this key three independent ways: two authenticators and the paper
+          secret above. Any one opens it. Do this twice - once per authenticator - and
+          keep the paper secret. Losing all three is the intended terminal failure; there
+          is no fourth copy anywhere.
+        </p>
+        <button id="wrap-authenticator" type="button">Wrap with an authenticator</button>
+        <pre id="authenticator-status" aria-live="polite"></pre>
+
+        <h3>Wrapped under this authenticator</h3>
+        <pre id="authenticator-blob" aria-live="polite"></pre>
+      </section>
+
+      <section>
+        <h2>3. Verify a recovery path</h2>
         <p>
           Prove the paper secret really opens the key before you rely on it. HR-4.5
           makes losing all three wraps the intended terminal failure - there is no
@@ -57,7 +72,12 @@
         <label for="unwrap-blob">Wrapped private key</label>
         <textarea id="unwrap-blob" rows="3" spellcheck="false"></textarea>
 
-        <button id="unwrap" type="button">Unwrap</button>
+        <button id="unwrap" type="button">Unwrap with the paper secret</button>
+
+        <label for="unwrap-authenticator-blob">...or an authenticator-wrapped key</label>
+        <textarea id="unwrap-authenticator-blob" rows="3" spellcheck="false"></textarea>
+        <button id="unwrap-authenticator" type="button">Unwrap with an authenticator</button>
+
         <pre id="unwrap-result" aria-live="polite"></pre>
       </section>
     </main>

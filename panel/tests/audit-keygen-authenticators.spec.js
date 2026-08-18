@@ -104,7 +104,21 @@ test('a second authenticator wraps the same key independently', async ({ page })
   await expect(page.locator('#unwrap-result')).toContainText(pub);
 });
 
-test('a different authenticator cannot open another authenticator wrap', async ({ page }) => {
+// GATE 3, SECOND PASS — this test was REWRITTEN because mutation testing proved the first
+// version had no teeth. Recorded rather than quietly fixed: workflow §3.2 warns that a
+// corrected intent and a moved goalpost look identical in a diff.
+//
+// The original removed authenticator A, added a fresh B, and tried A's blob. It passed —
+// and it passed even when the wrapping key was replaced by a CONSTANT, which should have
+// made every wrap openable by anything. The reason: the fresh authenticator held no
+// credential at all, so navigator.credentials.get() found nothing and threw before any
+// decryption was attempted. The test was asserting "a device with no credential cannot
+// produce an assertion", which is true, trivial, and not the property HR-4.5 needs.
+//
+// The property that matters is: authenticator B, holding a perfectly good credential of
+// its own, still cannot open A's wrap — because its prf output is different. So B now
+// registers first, and the failure has to come from the AES-GCM tag check.
+test('an authenticator with its OWN credential still cannot open another wrap', async ({ page }) => {
   const a = await addAuthenticator(page);
   await page.goto(PAGE);
   await page.click('#generate');
@@ -112,18 +126,27 @@ test('a different authenticator cannot open another authenticator wrap', async (
   await expect(page.locator('#authenticator-status')).toHaveText(/^wrapped /, { timeout: 15000 });
   const blobA = await page.locator('#authenticator-blob').innerText();
 
-  // Swap in a completely different authenticator, then try A's blob with it.
+  // Swap in a different authenticator and give it a real, working credential.
   await a.client.send('WebAuthn.removeVirtualAuthenticator', { authenticatorId: a.authenticatorId });
   await addAuthenticator(page);
 
   await page.reload();
+  await page.click('#generate');
+  await page.click('#wrap-authenticator');
+  await expect(page.locator('#authenticator-status')).toHaveText(/^wrapped /, { timeout: 15000 });
+  const blobB = await page.locator('#authenticator-blob').innerText();
+
+  // Sanity: B really can open its own wrap, so the failure below cannot be blamed on B
+  // being unable to assert.
+  await page.fill('#unwrap-authenticator-blob', blobB);
+  await page.click('#unwrap-authenticator');
+  await expect(page.locator('#unwrap-result')).toHaveText(/^ok /, { timeout: 15000 });
+
+  // The real assertion: B asserts successfully, derives ITS prf output, and the AES-GCM
+  // tag check rejects A's ciphertext.
   await page.fill('#unwrap-authenticator-blob', blobA);
   await page.click('#unwrap-authenticator');
   await expect(page.locator('#unwrap-result')).toHaveText(/^failed/, { timeout: 15000 });
-
-  // Each wrap is bound to its own authenticator's prf output. If a different device could
-  // open it, "three independent wraps" would be theatre - the whole point is that
-  // compromising one path does not yield the others.
 });
 
 test('the prf output never reaches web storage', async ({ page }) => {

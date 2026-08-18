@@ -1,0 +1,17 @@
+{
+  "_comment": [
+    "Epoch-stamped list of accepted admin X25519 audit public keys (HR-4.8).",
+    "APPEND ONLY. Editing or removing an entry orphans every audit entry already sealed",
+    "to it, and HR-4.8 requires the previous key stay valid for one release cycle.",
+    "Agents seal to the highest epoch they know. This list is changed only through the",
+    "signed release channel, which means rotation needs the release key and a staged",
+    "rollout - slow and deliberate, which is correct for a key this privileged.",
+    "",
+    "EMPTY ON PURPOSE. Generating the real key needs a browser session where two WebAuthn",
+    "authenticators are registered (panel/static/audit-keygen.html). The recovery-secret",
+    "wrap is implemented and tested; the two prf wraps need a human at the keyboard.",
+    "BLK-9's retained precondition binds first: the panel domain fixes the RP ID, and",
+    "registering before it is chosen kills both hardware wraps."
+  ],
+  "keys": []
+}

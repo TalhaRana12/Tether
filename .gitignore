@@ -46,3 +46,8 @@ desktop.ini
 node_modules/
 panel/test-results/
 panel/playwright-report/
+
+# Sealed release seed: machine-specific TPM state, not source. Safe at rest (it only
+# opens on one TPM) but committing it suggests a checkout is enough to sign. It is not.
+keys/*.tpm-sealed
+/dist/
